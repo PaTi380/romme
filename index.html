@@ -552,6 +552,24 @@ button { font: inherit; cursor: pointer; }
 .meld { background: rgba(0,0,0,.10); box-shadow: inset 0 1px 6px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.06); }
 @media (prefers-reduced-motion: reduce) { #table { transform: none; } }
 
+/* Wer ist da? */
+.panel .waiting {
+  margin: 4px auto 12px; padding: 10px 16px; border-radius: 14px; background: #eef6ee; border: 1px solid #c6e2c9;
+  font-size: 19px; display: inline-block;
+}
+.panel .waiting .note { font-size: 14px; margin-top: 4px; }
+.panel .waiting .dot, .pickbtn .avatar::after, .oppchip .avatar::after { background: #2fbf5a; }
+.panel .waiting .dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 6px; box-shadow: 0 0 0 3px rgba(47,191,90,.25); animation: breathe2 2s ease-in-out infinite; }
+.pickbtn .avatar, .oppchip .avatar { position: relative; }
+.pickbtn.here .avatar::after, .oppchip .avatar::after {
+  content: ""; position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #fffaf0;
+}
+.pickbtn:not(.here) .avatar::after { display: none; }
+.oppchip.away .avatar::after { background: #9aa39c; }
+.oppchip.away .avatar { filter: grayscale(.6); opacity: .75; }
+@keyframes breathe2 { 50% { box-shadow: 0 0 0 6px rgba(47,191,90,.08); } }
+
 </style>
 </head>
 <body>
@@ -1076,6 +1094,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
   let lastTurnSeen = null;
   let menuOpen = false;
   let lastRendered = null;
+  let online = []; // Plätze, die die App gerade offen haben
   let animReady = false; // beim allerersten Anzeigen (Seite neu geladen) nicht austeilen
   let lastBanner = '';
   const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1102,6 +1121,19 @@ if (window.FIREBASE_CONFIG.apiKey) {
       async getKeys() { const k = {}; SEATS.forEach((q) => { k[q] = 'test' + q; }); return k; },
       async createTable() {},
       async newKey() { return 'test'; },
+      presence(p, cb) {
+        const k = 'romme-test-online-' + table;
+        const beat = () => {
+          let m = {}; try { m = JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) {}
+          m[p] = Date.now(); localStorage.setItem(k, JSON.stringify(m));
+        };
+        const read = () => {
+          let m = {}; try { m = JSON.parse(localStorage.getItem(k) || '{}'); } catch (e) {}
+          cb(Object.keys(m).filter((q) => Date.now() - m[q] < 12000).map(Number));
+        };
+        beat(); read(); setInterval(() => { beat(); read(); }, 4000);
+        window.addEventListener('storage', (e) => { if (e.key === k) read(); });
+      },
     };
   }
 
@@ -1145,6 +1177,17 @@ if (window.FIREBASE_CONFIG.apiKey) {
         });
       },
       async resetSeat(p) { await base.child('plaetze/' + p).remove(); },
+      // Wer hat die App gerade offen? Eintrag verschwindet automatisch beim Schließen/Verbindungsende
+      presence(p, cb) {
+        const me = base.child('online/' + p + '/' + uid);
+        const on = () => { me.set(firebase.database.ServerValue.TIMESTAMP).catch(() => {}); me.onDisconnect().remove(); };
+        firebase.database().ref('.info/connected').on('value', (s) => { if (s.val()) on(); });
+        document.addEventListener('visibilitychange', () => { if (document.hidden) me.remove().catch(() => {}); else on(); });
+        base.child('online').on('value', (s) => {
+          const v = s.val() || {};
+          cb(Object.keys(v).filter((q) => v[q] && Object.keys(v[q]).length).map(Number));
+        }, () => {});
+      },
     };
   }
 
@@ -1242,7 +1285,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
   }
 
   function setTopHeight() {
-    document.documentElement.style.setProperty('--toph', $('#top').offsetHeight + 'px');
+    document.documentElement.style.setProperty('--toph', Math.round($('#top').getBoundingClientRect().bottom) + 'px');
   }
   function renderTable() {
     const st = state, p = me();
@@ -1357,6 +1400,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }
     layoutHand();
     setTopHeight();
+    updatePresence();
     if (before) animateChanges(before, prev, st);
     lastRendered = st;
 
@@ -1668,6 +1712,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     if (!lobbyPlayers) lobbyPlayers = ((state && state.lastPlayers) || [1, 2]).filter((q) => SEATS.includes(q));
     const pnl = panel(
       '<div class="title-cards" id="titleCards"></div><h1>Rommé</h1><div class="ornament">♠ ♥ ♣ ♦</div>' +
+      '<div class="waiting" id="waiting"></div>' +
       '<p><b>Wer spielt mit?</b></p>' +
       '<div class="row pick" id="pick">' + SEATS.map((q) => '<button class="pickbtn" data-seat="' + q + '"><span class="avatar">' + esc(initials(q)) + '</span>' + esc(NAMES[q]) + '</button>').join('') + '</div>' +
       '<p><b>Wie viele Runden?</b></p>' +
@@ -1691,6 +1736,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       updPick();
     });
     updPick();
+    updatePresence();
     const upd = () => {
       const v = pnl.querySelector('#rVal'); v.textContent = lobbyRounds;
       v.classList.remove('bump'); void v.offsetWidth; v.classList.add('bump');
@@ -1808,6 +1854,19 @@ if (window.FIREBASE_CONFIG.apiKey) {
       });
     };
     fill();
+  }
+
+  // ---------- Wer ist da? ----------
+  function updatePresence() {
+    const here = SEATS.filter((q) => online.includes(q) || q === seat);
+    const w = document.getElementById('waiting');
+    if (w) {
+      const others = here.filter((q) => q !== seat);
+      w.innerHTML = '<span class="dot"></span> Im Warteraum: ' + here.map((q) => '<b>' + esc(q === seat ? 'Du' : NAMES[q]) + '</b>').join(', ') +
+        (others.length ? '' : '<div class="note">Noch niemand sonst da – sobald jemand die App öffnet, erscheint er hier.</div>');
+    }
+    document.querySelectorAll('.pickbtn').forEach((b) => b.classList.toggle('here', here.includes(+b.dataset.seat)));
+    document.querySelectorAll('#opp .oppchip').forEach((c) => c.classList.toggle('away', !online.includes(+c.dataset.seat)));
   }
 
   // ---------- Statistik ----------
@@ -1958,6 +2017,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       setTimeout(claimLoop, 8000);
       return;
     }
+    sync.presence(seat, (list) => { online = list; updatePresence(); });
     sync.subscribe((st) => { state = st; render(); animReady = true; }, (err) => {
       showMessage('<div class="big-emoji">🔒</div><h2>Kein Zugriff</h2><p>Der Spieltisch lässt dieses Gerät gerade nicht hinein.</p><p class="note">' + esc(err && err.message) + '</p>');
       setTimeout(() => location.reload(), 10000);

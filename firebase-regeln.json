@@ -27,6 +27,14 @@
           ".write": "auth != null && (data.parent().child('plaetze/1/' + auth.uid).exists() || data.parent().child('plaetze/2/' + auth.uid).exists() || data.parent().child('plaetze/3/' + auth.uid).exists() || data.parent().child('plaetze/4/' + auth.uid).exists())",
           ".validate": "newData.isString() && newData.val().length < 200000"
         },
+        "online": {
+          "$platz": {
+            "$uid": {
+              ".write": "auth != null && $uid === auth.uid && root.child('tische/' + $tisch + '/plaetze/' + $platz + '/' + auth.uid).exists()",
+              ".validate": "newData.isNumber()"
+            }
+          }
+        },
         "$sonst": {
           ".validate": false
         }
