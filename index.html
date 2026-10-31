@@ -9,6 +9,15 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<script>
+/* App-Modus (ohne Browserleiste) nur für Android & Co. – auf iPad/iPhone bleibt es beim normalen Lesezeichen,
+   weil dort eine installierte Web-App einen getrennten Speicher hätte und den Spieltisch nicht wiederfände. */
+(function () {
+  var ua = navigator.userAgent;
+  var ios = /iPad|iPhone|iPod/.test(ua) || (ua.indexOf('Macintosh') >= 0 && navigator.maxTouchPoints > 1);
+  if (!ios) { var l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.webmanifest'; document.head.appendChild(l); }
+})();
+</script>
 <link rel="icon" type="image/png" href="data:image/png;base64,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">
 <link rel="apple-touch-icon" href="data:image/png;base64,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">
 <script>
@@ -79,6 +88,7 @@ button { font: inherit; cursor: pointer; }
   padding: 8px 16px; min-height: 58px;
   background: linear-gradient(180deg, rgba(0,0,0,.38), rgba(0,0,0,.18));
   border-bottom: 1px solid rgba(230,189,92,.28);
+  position: relative; z-index: 55;
   box-shadow: 0 4px 18px rgba(0,0,0,.25);
 }
 #opp { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; font-size: 20px; }
@@ -107,6 +117,12 @@ button { font: inherit; cursor: pointer; }
 #score .round { font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--gold-hi); }
 #score .pts { font-size: 15px; color: var(--ink-soft); }
 #score .pts b { color: var(--ink); font-weight: 700; }
+#quit {
+  border: 1px solid rgba(246,220,148,.55); background: rgba(0,0,0,.25); color: var(--gold-hi);
+  height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; font-size: 17px; white-space: nowrap;
+}
+#quit:active { transform: translateY(1px); }
+.quit-layer { z-index: 95; }
 #gear {
   border: 1px solid rgba(230,189,92,.35); background: rgba(255,255,255,.06); color: var(--gold-hi);
   width: 44px; height: 44px; border-radius: 50%; font-size: 21px;
@@ -407,6 +423,7 @@ button { font: inherit; cursor: pointer; }
   #score .round { font-size: 15px; }
   #score .pts { font-size: 12px; }
   #gear { width: 34px; height: 34px; font-size: 18px; }
+  #quit { height: 34px; padding: 0 10px; font-size: 14px; }
   #banner { font-size: 16px; padding: 6px 12px; margin-top: 4px; flex-direction: row; flex-wrap: wrap; column-gap: 10px; }
   #banner .sub { font-size: 14px; }
   #banner .chip { font-size: 13px; padding: 1px 8px; }
@@ -429,6 +446,7 @@ button { font: inherit; cursor: pointer; }
   #score .round { font-size: 14px; }
   #score .pts { font-size: 11px; }
   #gear { width: 34px; height: 34px; font-size: 18px; }
+  #quit { height: 34px; padding: 0 10px; font-size: 14px; }
   #banner { font-size: 16px; padding: 8px 12px; margin: 6px 8px 0; }
   #banner .sub { font-size: 13px; }
   #banner .chip { font-size: 12px; }
@@ -450,6 +468,7 @@ button { font: inherit; cursor: pointer; }
     <div id="opp"></div>
     <div id="score"></div>
     <button id="gear" aria-label="Einstellungen" hidden>⚙</button>
+    <button id="quit" aria-label="Beenden">Beenden</button>
   </header>
   <div id="banner"></div>
   <main id="table">
@@ -468,6 +487,7 @@ button { font: inherit; cursor: pointer; }
 </div>
 <div id="overlay" class="overlay" hidden></div>
 <div id="toast" hidden></div>
+<div id="quitLayer" class="overlay quit-layer" hidden></div>
 
 <script>
 /* Firebase nur laden, wenn Zugangsdaten eingetragen sind */
@@ -1523,7 +1543,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const pnl = panel('<h2>Einstellungen</h2>' +
       '<button class="btn" id="mReset">' + esc(NAMES[2]) + 's Gerät neu freigeben</button>' +
       '<p class="note">Nötig, wenn ' + esc(NAMES[2]) + ' ein neues Tablet hat oder die Browserdaten gelöscht wurden. Danach einfach bei ' + esc(NAMES[2]) + ' den Link öffnen.</p>' +
-      '<button class="btn" id="mAbort">Spiel beenden (zurück zum Start)</button>' +
+      '<button class="btn" id="mAbort">Spiel abbrechen und neu beginnen</button>' +
       '<div class="linkbox"><b>Link für ' + esc(NAMES[2]) + '</b>' + esc(l2) + '</div>' +
       '<button class="btn" data-copy="' + esc(l2) + '">Kopieren</button>' +
       '<div class="linkbox"><b>Dein Link</b>' + esc(l1) + '</div>' +
@@ -1541,6 +1561,35 @@ if (window.FIREBASE_CONFIG.apiKey) {
       menuOpen = false;
       sync.transact(() => R.lobby());
     };
+  }
+
+  // ---------- Beenden ----------
+  function quitPanel(html) {
+    const q = $('#quitLayer');
+    q.innerHTML = '<div class="panel">' + html + '</div>';
+    q.hidden = false; q.classList.add('enter');
+    return q.firstChild;
+  }
+  function askQuit() {
+    const p = quitPanel('<div class="big-emoji">🚪</div><h2>Rommé beenden?</h2>' +
+      '<p>Keine Sorge: Das Spiel bleibt gespeichert und geht beim nächsten Mal genau hier weiter.</p>' +
+      '<div class="row"><button class="btn primary" id="qYes">Ja, beenden</button><button class="btn" id="qNo">Weiterspielen</button></div>');
+    p.querySelector('#qNo').onclick = closeQuit;
+    p.querySelector('#qYes').onclick = doQuit;
+  }
+  function closeQuit() { const q = $('#quitLayer'); q.hidden = true; q.innerHTML = ''; }
+  function doQuit() {
+    try { if (wakeLock) wakeLock.release(); } catch (e) {}
+    try { window.close(); } catch (e) {}
+    // Wenn der Browser das Schließen nicht erlaubt: ruhiger Abschlussbildschirm
+    setTimeout(() => {
+      const p = quitPanel('<div class="big-emoji">👋</div><h1>Bis bald!</h1>' +
+        '<p>Das Spiel ist gespeichert.</p>' +
+        '<p><b>Jetzt unten auf den Knopf für den Startbildschirm tippen</b> (der runde Knopf ⭘ oder einmal von unten nach oben wischen).</p>' +
+        '<p class="note">Zum Weiterspielen einfach wieder auf das Rommé-Symbol tippen.</p>' +
+        '<button class="btn" id="qBack">Doch weiterspielen</button>');
+      p.querySelector('#qBack').onclick = closeQuit;
+    }, 350);
   }
 
   // ---------- Hilfen ----------
@@ -1600,6 +1649,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       }
     }, true);
     $('#gear').onclick = showMenu;
+    $('#quit').onclick = askQuit;
     window.addEventListener('resize', () => { if (state && state.phase !== 'lobby') { sizeCards(); layoutHand(); } });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { wakeLock = null; } });
 

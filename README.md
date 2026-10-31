@@ -101,3 +101,9 @@ Neue `index.html` hochladen und dabei den Abschnitt `EINSTELLUNGEN` (Namen + Fir
 7. Zum Schluss **eine** Karte wählen → „Abwerfen“. Dann ist Till dran.
 
 Wenn etwas nicht geht, erklärt ein Hinweis in der Mitte, warum.
+
+## Beenden und App-Modus
+
+- Oben rechts gibt es den Knopf **„Beenden“**. Eine Webseite darf den Browser nicht selbst schließen. Klappt das Schließen nicht, zeigt das Spiel einen Abschlussbildschirm mit dem Hinweis, den Home-Knopf zu drücken. Der Spielstand bleibt immer erhalten.
+- **Android-Tablet/-Handy:** Den eigenen Link einmal in Chrome öffnen, dann Menü ⋮ → **„App installieren“** (oder „Zum Startbildschirm hinzufügen“ → „Installieren“). Danach öffnet sich Rommé ohne Browserleiste wie eine eigene App, und „Beenden“ schließt sie in der Regel ganz.
+- **iPad/iPhone:** Link in Safari öffnen → Teilen → „Zum Home-Bildschirm“. Das Spiel öffnet sich dann in Safari. Nach „Beenden“ führt der Home-Knopf bzw. das Wischen von unten zurück zum Startbildschirm.
