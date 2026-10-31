@@ -117,7 +117,7 @@ button { font: inherit; cursor: pointer; }
 #opp .handcount.few b { color: #fff; }
 #opp .handcount.bump { animation: bump .6s var(--ease); display: inline-block; }
 .backs { display: flex; align-items: flex-end; height: 34px; padding: 0 12px 0 4px; }
-.backs .back { --w: 22px; margin-left: -14px; border-width: 1.5px; transform-origin: 50% 120%; }
+.backs .back { --w: 20px; margin-left: -11px; border-width: 1.5px; transform-origin: 50% 140%; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
 .backs .back:first-child { margin-left: 0; }
 #score { text-align: right; white-space: nowrap; line-height: 1.25; }
 #score .round { font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--gold-hi); }
@@ -446,7 +446,6 @@ button { font: inherit; cursor: pointer; }
   #opp { font-size: 15px; gap: 6px; }
   #opp .avatar { width: 30px; height: 30px; font-size: 15px; }
   #opp .name { font-size: 17px; }
-  .backs { display: none; }
   #opp .handcount { font-size: 14px; padding: 2px 9px; }
   #opp .handcount b { font-size: 18px; }
   #score .round { font-size: 14px; }
@@ -466,8 +465,9 @@ button { font: inherit; cursor: pointer; }
 }
 
 @media (max-width: 760px) {
-  #top:has(#opp.multi) { flex-wrap: wrap; row-gap: 6px; }
-  #opp.multi { order: 3; flex-basis: 100%; justify-content: space-around; gap: 6px; }
+  #top { flex-wrap: wrap; row-gap: 6px; }
+  #opp { order: 3; flex-basis: 100%; justify-content: space-around; gap: 6px; }
+  #score { margin-left: auto; }
   #opp.multi .name { display: none; }
   #opp.multi .oppchip { gap: 5px; padding: 2px 5px 2px 2px; }
   #opp.multi .oppchip .card { display: none; }
@@ -488,6 +488,12 @@ button { font: inherit; cursor: pointer; }
 .pickbtn:active { transform: scale(.97); }
 .panel .loser { margin: 6px 0 10px; }
 .panel .loser p { margin: 6px 0 4px; }
+
+@media (max-width: 760px) {
+  .backs { height: 30px; padding-right: 6px; }
+  .backs .back { --w: 18px; margin-left: -10px; border-width: 1px; }
+  #opp.multi .backs .back { --w: 15px; margin-left: -9px; }
+}
 
 </style>
 </head>
@@ -1157,18 +1163,11 @@ if (window.FIREBASE_CONFIG.apiKey) {
       chip.dataset.seat = q;
       const av = document.createElement('span'); av.className = 'avatar'; av.textContent = initials(q);
       const nm = document.createElement('span'); nm.className = 'name'; nm.textContent = NAMES[q];
-      const cnt = document.createElement('span');
-      cnt.className = 'handcount' + (qc <= 3 ? ' few' : '');
-      cnt.innerHTML = '<b>' + qc + '</b> <span class="w">' + (qc === 1 ? 'Karte' : 'Karten') + '</span>';
-      if (prev.hands && prev.hands[q] && prev.hands[q].length !== qc && !REDUCED) cnt.classList.add('bump');
       chip.append(av, nm);
-      if (os.length === 1) {
-        const backs = document.createElement('div'); backs.className = 'backs';
-        const nb = Math.min(qc, 16);
-        for (let i = 0; i < nb; i++) { const b = backEl(); b.style.transform = 'rotate(' + ((i - (nb - 1) / 2) * 4) + 'deg)'; backs.appendChild(b); }
-        chip.append(backs);
-      }
-      chip.append(cnt);
+      // verdeckte Karten zum Selbstzählen
+      const backs = document.createElement('div'); backs.className = 'backs';
+      for (let i = 0; i < qc; i++) { const b = backEl(); b.style.transform = 'rotate(' + ((i - (qc - 1) / 2) * 2.5) + 'deg)'; backs.appendChild(b); }
+      chip.append(backs);
       if (st.openCard && (st.hands[q] || []).includes(st.openCard)) {
         const c = cardEl(st.openCard, { small: true }); c.style.setProperty('--w', '30px'); c.title = 'offen'; chip.append(c);
       }
@@ -1184,30 +1183,18 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const banner = $('#banner');
     banner.className = myTurn ? 'mine' : '';
     let main, sub = '', chip = '';
-    const sinceMe = othersSinceMyTurn();
+    // kurz halten: nur wer dran ist und was zu tun ist
     if (!inGame()) {
-      main = 'Diese Runde spielen ' + players().map((q) => NAMES[q]).join(', ') + '. Du schaust zu.';
-      if (st.phase === 'play') sub = turnName + ' ist dran.';
+      main = 'Du schaust zu.' + (st.phase === 'play' ? ' ' + turnName + ' ist dran.' : '');
     } else if (myTurn && st.step === 'draw') {
-      main = 'Du bist dran! Nimm eine Karte vom Stapel oder vom Ablagestapel.';
-      sub = sinceMe;
+      main = 'Du bist dran! Nimm eine Karte.';
     } else if (myTurn) {
-      if (!sel.length) main = 'Wähle Karten aus deiner Hand: zum Auslegen, Anlegen oder eine zum Abwerfen.';
-      else if (sel.length === 1) main = 'Eine Karte gewählt: „Abwerfen“ beendet deinen Zug. Oder tippe auf eine Gruppe am Tisch zum Anlegen.';
-      else if (sel.length === 2) main = 'Zwei Karten gewählt. Zum Auslegen brauchst du mindestens 3.';
-      else main = sel.length + ' Karten gewählt: Tippe auf „Auslegen“ oder auf eine Gruppe zum Anlegen.';
-      if (st.openCard && st.turn === st.starter && hand.length >= 14 && st.step === 'play' && !st.discard.length) {
-        sub = 'Du fängst an: Du hast 14 Karten und ziehst diesmal nicht. Lege aus oder wirf eine Karte ab.';
-      }
+      const starting = st.openCard && st.turn === st.starter && hand.length >= 14 && !st.discard.length;
+      main = starting ? 'Du fängst an: Lege aus oder wirf eine Karte ab.' : 'Lege aus oder wirf eine Karte ab.';
     } else {
       main = turnName + ' ist dran …';
-      const last = st.log && st.log[st.log.length - 1];
-      if (last && last.a !== 'start' && last.a !== 'win') sub = logText(last) + (last.p !== p ? ' ' + NAMES[last.p] + ' hat noch ' + cardsWord((st.hands[last.p] || []).length) + '.' : '');
-      else sub = 'Du kannst in Ruhe deine Karten sortieren: Karte festhalten und zur Seite schieben.';
     }
-    if (inGame() && !st.hasMeld[p]) chip = myTurn && R.tentValue(st, p)
-      ? 'Erstes Auslegen: ' + R.tentValue(st, p) + ' von 30 Punkten'
-      : 'Du hast noch nicht ausgelegt (mind. 30 Punkte)';
+    if (inGame() && myTurn && !st.hasMeld[p] && R.tentValue(st, p)) chip = 'Erstes Auslegen: ' + R.tentValue(st, p) + ' von 30 Punkten';
     const changed = main !== lastBanner; lastBanner = main;
     banner.innerHTML = '<div class="txt' + (changed ? ' anim' : '') + '">' + esc(main) + '</div>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
       (chip ? '<div class="chip">' + esc(chip) + '</div>' : '');
@@ -1231,7 +1218,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }
     for (const m of st.melds) {
       const box = document.createElement('div');
-      const full = m.type === 'set' && m.cards.length === 4; // vier gleiche: fertig, eng zusammenlegen
+      // vier gleiche ohne Joker: hier geht nichts mehr (kein Anlegen, kein Jokertausch) – eng zusammenlegen
+      const full = m.type === 'set' && m.cards.length === 4 && !m.cards.some(R.isJoker);
       box.className = 'meld' + (m.tent ? ' tent' : '') + (full ? ' full' : '');
       box.dataset.meld = m.id;
       box.dataset.owner = m.owner;
