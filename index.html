@@ -176,6 +176,15 @@ button { font: inherit; cursor: pointer; }
 .meld .card { margin-left: calc(var(--tw) * -.44); }
 .meld .card:first-child { margin-left: 0; }
 .meld.tent { border: 2px dashed var(--gold); background: rgba(230,189,92,.08); }
+.meld.full { padding-right: 16px; }
+.meld.full .card { margin-left: calc(var(--tw) * -.84); }
+.meld.full .card:first-child { margin-left: 0; }
+.meld .fullbadge {
+  position: absolute; top: -9px; right: -7px; z-index: 3;
+  font-family: var(--serif); font-weight: 800; font-size: 14px; color: #33240a;
+  background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-radius: 999px; padding: 2px 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
 .meld.tent::after {
   content: "noch nicht fest"; position: absolute; top: -11px; right: 10px; font-size: 12px;
   background: var(--gold); color: #3a2a00; padding: 1px 9px; border-radius: 999px; font-weight: 700;
@@ -1133,9 +1142,11 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }
     for (const m of st.melds) {
       const box = document.createElement('div');
-      box.className = 'meld' + (m.tent ? ' tent' : '');
+      const full = m.type === 'set' && m.cards.length === 4; // vier gleiche: fertig, eng zusammenlegen
+      box.className = 'meld' + (m.tent ? ' tent' : '') + (full ? ' full' : '');
       box.dataset.meld = m.id;
       m.cards.forEach((id) => box.appendChild(cardEl(id, { small: true })));
+      if (full) { const bd = document.createElement('span'); bd.className = 'fullbadge'; bd.textContent = '4×'; box.appendChild(bd); }
       if (myTurn && st.step === 'play' && sel.length && fitsMeld(m.id)) box.classList.add('fits');
       box.addEventListener('click', () => onMeldTap(m.id));
       ml.appendChild(box);
