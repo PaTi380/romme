@@ -161,7 +161,20 @@ button { font: inherit; cursor: pointer; }
 }
 
 /* ---------- Tisch ---------- */
-#table { flex: 1; display: flex; gap: 16px; padding: 14px; min-height: 0; }
+#table {
+  flex: 1; display: flex; gap: 16px; padding: 14px 14px 8px; min-height: 0;
+  transform: perspective(1400px) rotateX(7deg); transform-origin: 50% 100%;
+}
+/* Holzrahmen um den Filz */
+#feltwrap {
+  flex: 1; display: flex; min-height: 0; padding: 10px; border-radius: 26px;
+  background:
+    repeating-linear-gradient(91deg, rgba(255,235,200,.05) 0 2px, transparent 2px 11px),
+    repeating-linear-gradient(88deg, rgba(0,0,0,.09) 0 1px, transparent 1px 17px),
+    linear-gradient(180deg, #9a6a38 0%, #7a4c24 45%, #55321a 100%);
+  box-shadow: 0 14px 28px rgba(0,0,0,.5), 0 2px 0 rgba(255,255,255,.08) inset, 0 -3px 0 rgba(0,0,0,.35) inset,
+    0 0 0 1px rgba(0,0,0,.4);
+}
 #piles { display: flex; flex-direction: column; gap: 14px; align-items: center; flex: none; }
 .pile { position: relative; border-radius: 10px; padding: 0; border: none; background: none; color: var(--ink); }
 .pile .lbl { display: block; text-align: center; font-size: 14px; color: var(--ink-soft); margin-top: 6px; letter-spacing: .08em; text-transform: uppercase; }
@@ -184,10 +197,13 @@ button { font: inherit; cursor: pointer; }
   text-shadow: 0 1px 3px #000, 0 0 10px rgba(0,0,0,.6); pointer-events: none;
 }
 #melds {
-  flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 14px;
-  padding: 12px; border-radius: 22px;
-  background: rgba(0,0,0,.12);
-  box-shadow: inset 0 2px 16px rgba(0,0,0,.3), inset 0 0 0 1px rgba(246,220,148,.12);
+  flex: 1; overflow-y: auto; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 16px;
+  padding: 14px; border-radius: 18px;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 35%, rgba(255,255,230,.10), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #1a6a49, #135638 60%, #0f4a30);
+  box-shadow: inset 0 4px 18px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.4);
 }
 #melds .hint {
   color: rgba(201,220,207,.7); font-family: var(--serif); font-style: italic; font-size: 20px; padding: 14px; margin: auto;
@@ -228,7 +244,11 @@ button { font: inherit; cursor: pointer; }
   border-radius: calc(var(--w, var(--cw)) * .09);
   background: linear-gradient(165deg, var(--card) 0%, var(--card) 55%, var(--card-2) 100%);
   border: 1px solid var(--card-edge);
-  box-shadow: 0 1px 1px rgba(0,0,0,.15), 0 3px 8px rgba(0,0,0,.28);
+  /* Kartendicke + weicher Schatten */
+  box-shadow: 0 1px 0 #efe6cf, 0 2px 0 #d3c5a3, 0 3px 1px rgba(0,0,0,.22), 0 6px 12px rgba(0,0,0,.3);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.2' numOctaves='1' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .38 0 0 0 0 .25 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E"),
+    linear-gradient(165deg, #ffffff 0%, var(--card) 35%, var(--card-2) 100%);
   color: var(--black); overflow: hidden;
   transition: transform .22s var(--ease), box-shadow .22s var(--ease);
   backface-visibility: hidden;
@@ -292,8 +312,8 @@ button { font: inherit; cursor: pointer; }
 #hand { display: flex; justify-content: center; min-height: calc(var(--cw) * 1.4); touch-action: none; }
 #hand .card { cursor: grab; }
 #hand .card.sel {
-  transform: translateY(calc(var(--cw) * -0.42));
-  box-shadow: 0 0 0 3px var(--gold-hi), 0 0 18px rgba(246,220,148,.7), 0 12px 18px rgba(0,0,0,.4);
+  transform: translateY(calc(var(--cw) * -0.42)) rotate(-1.5deg);
+  box-shadow: 0 0 0 3px var(--gold-hi), 0 0 18px rgba(246,220,148,.7), 0 2px 0 #d3c5a3, 0 18px 26px rgba(0,0,0,.5);
 }
 #hand .card.open { box-shadow: 0 0 0 3px rgba(230,189,92,.8), 0 3px 8px rgba(0,0,0,.28); }
 #hand .card.dragging { z-index: 10; transition: none; cursor: grabbing; box-shadow: 0 18px 30px rgba(0,0,0,.5); }
@@ -515,6 +535,23 @@ button { font: inherit; cursor: pointer; }
   .panel td, .panel th { padding: 6px 7px; }
 }
 
+/* echte Stapel */
+.pile .stack { position: relative; }
+.pile .stack .under { position: absolute; left: 0; top: 0; }
+.pile .stack .card.under { box-shadow: 0 1px 0 #d3c5a3, 0 3px 6px rgba(0,0,0,.3); }
+#deck .stack > .back:last-child {
+  position: relative;
+  box-shadow: 0 1px 0 #e9dfc6, 0 2px 0 rgba(0,0,0,.25), 0 3px 0 #e9dfc6, 0 4px 0 rgba(0,0,0,.25), 0 5px 0 #e9dfc6, 0 10px 16px rgba(0,0,0,.5), inset 0 0 0 2px rgba(230,189,92,.55);
+}
+.pile .stack > .card:last-child { position: relative; }
+/* Karte beim Umdrehen */
+.flip3d { position: fixed; z-index: 45; pointer-events: none; transform-style: preserve-3d; }
+.flip3d .face { position: absolute; left: 0; top: 0; margin: 0 !important; backface-visibility: hidden; -webkit-backface-visibility: hidden; transform: none; }
+.flip3d .backface { transform: rotateY(180deg); }
+/* Gruppen auf dem Tisch leicht plastisch */
+.meld { background: rgba(0,0,0,.10); box-shadow: inset 0 1px 6px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.06); }
+@media (prefers-reduced-motion: reduce) { #table { transform: none; } }
+
 </style>
 </head>
 <body>
@@ -533,7 +570,7 @@ button { font: inherit; cursor: pointer; }
       <button class="pile" id="deck" aria-label="Stapel"></button>
       <button class="pile" id="discard" aria-label="Ablagestapel"></button>
     </div>
-    <div id="melds"></div>
+    <div id="feltwrap"><div id="melds"></div></div>
   </main>
   <section id="handArea"><div id="hand"></div><div id="dropMarker" hidden></div></section>
   <nav id="actions">
@@ -1264,11 +1301,28 @@ if (window.FIREBASE_CONFIG.apiKey) {
 
     // Stapel
     const deck = $('#deck'); deck.innerHTML = '';
-    deck.appendChild(st.deck.length ? backEl() : Object.assign(document.createElement('div'), { className: 'empty' }));
+    if (st.deck.length) {
+      const stack = document.createElement('div'); stack.className = 'stack';
+      const nUnder = Math.min(3, st.deck.length - 1);
+      for (let i = 0; i < nUnder; i++) { const u = backEl(); u.classList.add('under'); u.style.transform = 'translate(' + (-(i + 1) * 1.5) + 'px,' + ((i + 1) * 2) + 'px) rotate(' + [-2.5, 1.8, -1][i] + 'deg)'; stack.appendChild(u); }
+      stack.appendChild(backEl());
+      deck.appendChild(stack);
+    } else deck.appendChild(Object.assign(document.createElement('div'), { className: 'empty' }));
     deck.appendChild(Object.assign(document.createElement('span'), { className: 'lbl', textContent: 'Stapel' }));
     const dis = $('#discard'); dis.innerHTML = '';
     const top = st.discard[st.discard.length - 1];
-    dis.appendChild(top ? cardEl(top) : Object.assign(document.createElement('div'), { className: 'empty' }));
+    if (top) {
+      const stack = document.createElement('div'); stack.className = 'stack';
+      // die zwei Karten darunter leicht verdreht – wie ein echter Ablagestapel
+      st.discard.slice(-3, -1).forEach((id, i, arr) => {
+        const u = cardEl(id); u.classList.add('under'); delete u.dataset.id;
+        const h = id.split('').reduce((s, ch) => s + ch.charCodeAt(0), 0);
+        u.style.transform = 'rotate(' + ((h % 13) - 6) + 'deg) translate(' + ((h % 5) - 2) + 'px,' + ((h % 3)) + 'px)';
+        stack.appendChild(u);
+      });
+      stack.appendChild(cardEl(top));
+      dis.appendChild(stack);
+    } else dis.appendChild(Object.assign(document.createElement('div'), { className: 'empty' }));
     dis.appendChild(Object.assign(document.createElement('span'), { className: 'lbl', textContent: 'Ablage' }));
     const canDraw = myTurn && st.step === 'draw';
     deck.classList.toggle('glow', canDraw);
@@ -1320,7 +1374,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
   }
 
   // ---------- Bewegungen ----------
-  const MOVE_SEL = '#hand .card, #melds .card, #discard .card';
+  const MOVE_SEL = '#hand .card, #melds .card, #discard .card:not(.under)';
   function snapshot() {
     const m = new Map();
     document.querySelectorAll(MOVE_SEL).forEach((el) => m.set(el.dataset.id, el.getBoundingClientRect()));
@@ -1352,7 +1406,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
         }
       }
       if (!from) return;
-      if (el.closest('#melds')) flyClone(el, from, to, o); else flyEl(el, from, to, o);
+      if (o.flip) flyFlip(el, from, to, o);
+      else if (el.closest('#melds')) flyClone(el, from, to, o); else flyEl(el, from, to, o);
     });
     // Züge des anderen, die bei ihm auf der Hand landen
     if (!newDeal) {
@@ -1381,6 +1436,26 @@ if (window.FIREBASE_CONFIG.apiKey) {
          { transform: 'perspective(900px) ' + (endT || 'translate(0, 0)') }];
     const an = el.animate(frames, { duration: o.dur, delay: o.delay, easing: EASE, fill: 'backwards' });
     const done = () => { el.style.transformOrigin = ''; el.style.zIndex = ''; };
+    an.onfinish = done; an.oncancel = done;
+  }
+  // Verdeckte Karte fliegt herbei und dreht sich dabei um (Rückseite → Vorderseite)
+  function flyFlip(el, from, to, o) {
+    const wrap = document.createElement('div'); wrap.className = 'flyer flip3d';
+    Object.assign(wrap.style, { left: to.left + 'px', top: to.top + 'px', width: to.width + 'px', height: to.height + 'px', transformOrigin: '50% 50%' });
+    const front = el.cloneNode(true); front.classList.add('face'); front.classList.remove('sel'); front.style.setProperty('--w', to.width + 'px');
+    const back = backEl(to.width); back.classList.add('face', 'backface');
+    wrap.append(front, back);
+    document.body.appendChild(wrap);
+    el.style.visibility = 'hidden';
+    const fx = from.left + from.width / 2, fy = from.top + from.height / 2, tx = to.left + to.width / 2, ty = to.top + to.height / 2;
+    const dx = fx - tx, dy = fy - ty, s = from.width / to.width;
+    const lift = Math.min(60, Math.hypot(dx, dy) * 0.15);
+    const an = wrap.animate([
+      { transform: 'perspective(900px) translate(' + dx + 'px,' + dy + 'px) scale(' + s + ') rotateY(180deg)' },
+      { transform: 'perspective(900px) translate(' + dx * 0.5 + 'px,' + (dy * 0.5 - lift) + 'px) scale(' + ((s + 1) / 2 * 1.12) + ') rotateY(95deg) rotateZ(-4deg)', offset: 0.55 },
+      { transform: 'perspective(900px) translate(0,0) scale(1) rotateY(0deg)' },
+    ], { duration: o.dur + 150, delay: o.delay, easing: 'cubic-bezier(.45,.05,.3,1)', fill: 'backwards' });
+    const done = () => { wrap.remove(); el.style.visibility = ''; };
     an.onfinish = done; an.oncancel = done;
   }
   // Für Ziele in scrollenden Bereichen: eine Kopie fliegt oben drüber, das Original erscheint am Ende
