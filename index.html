@@ -123,6 +123,10 @@ button { font: inherit; cursor: pointer; }
 #score .round { font-family: var(--serif); font-size: 19px; font-weight: 700; color: var(--gold-hi); }
 #score .pts { font-size: 15px; color: var(--ink-soft); }
 #score .pts b { color: var(--ink); font-weight: 700; }
+#statsBtn {
+  border: 1px solid rgba(246,220,148,.35); background: rgba(255,255,255,.06);
+  width: 44px; height: 44px; border-radius: 50%; font-size: 20px;
+}
 #quit {
   border: 1px solid rgba(246,220,148,.55); background: rgba(0,0,0,.25); color: var(--gold-hi);
   height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; font-size: 17px; white-space: nowrap;
@@ -318,7 +322,7 @@ button { font: inherit; cursor: pointer; }
 
 /* ---------- Fenster ---------- */
 .overlay {
-  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 74px 16px 16px; z-index: 50;
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: calc(var(--toph, 66px) + 10px) 16px 16px; z-index: 50;
   background: radial-gradient(ellipse at 50% 40%, rgba(10,40,28,.72), rgba(3,15,10,.9));
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
 }
@@ -430,6 +434,7 @@ button { font: inherit; cursor: pointer; }
   #score .pts { font-size: 12px; }
   #gear { width: 34px; height: 34px; font-size: 18px; }
   #quit { height: 34px; padding: 0 10px; font-size: 14px; }
+  #statsBtn { width: 34px; height: 34px; font-size: 16px; }
   #banner { font-size: 16px; padding: 6px 12px; margin-top: 4px; flex-direction: row; flex-wrap: wrap; column-gap: 10px; }
   #banner .sub { font-size: 14px; }
   #banner .chip { font-size: 13px; padding: 1px 8px; }
@@ -452,6 +457,7 @@ button { font: inherit; cursor: pointer; }
   #score .pts { font-size: 11px; }
   #gear { width: 34px; height: 34px; font-size: 18px; }
   #quit { height: 34px; padding: 0 10px; font-size: 14px; }
+  #statsBtn { width: 34px; height: 34px; font-size: 16px; }
   #banner { font-size: 16px; padding: 8px 12px; margin: 6px 8px 0; }
   #banner .sub { font-size: 13px; }
   #banner .chip { font-size: 12px; }
@@ -495,6 +501,20 @@ button { font: inherit; cursor: pointer; }
   #opp.multi .backs .back { --w: 15px; margin-left: -9px; }
 }
 
+/* Statistik */
+.panel table.stats { font-size: 18px; }
+.panel table.stats th { font-size: 14px; font-weight: 700; line-height: 1.15; vertical-align: bottom; }
+.panel table.stats td { text-align: center; }
+.panel table.stats td.who { text-align: left; font-weight: 700; white-space: nowrap; }
+.panel ul.lastgames { list-style: none; padding: 0; margin: 6px 0; text-align: left; font-size: 16px; }
+.panel ul.lastgames li { padding: 6px 4px; border-bottom: 1px solid #e6dcc4; }
+.panel ul.lastgames .d { color: #8a7a55; font-variant-numeric: tabular-nums; margin-right: 4px; }
+@media (max-width: 600px) {
+  .panel table.stats { font-size: 15px; }
+  .panel table.stats th { font-size: 11px; }
+  .panel td, .panel th { padding: 6px 7px; }
+}
+
 </style>
 </head>
 <body>
@@ -503,6 +523,7 @@ button { font: inherit; cursor: pointer; }
   <header id="top">
     <div id="opp"></div>
     <div id="score"></div>
+    <button id="statsBtn" aria-label="Statistik">📊</button>
     <button id="gear" aria-label="Einstellungen" hidden>⚙</button>
     <button id="quit" aria-label="Beenden">Beenden</button>
   </header>
@@ -718,7 +739,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
   }
   const other = (p) => (p === 1 ? 2 : 1); // nur noch für alte Zwei-Spieler-Stände
 
-  function newGame(totalRounds, players, starter) {
+  function newGame(totalRounds, players, starter, stats) {
     if (typeof players === 'number' || !players) { starter = players; players = [1, 2]; } // alte Aufrufform
     players = players.slice().sort((a, b) => a - b);
     if (players.length < 2) fail('Es müssen mindestens zwei mitspielen.');
@@ -728,11 +749,33 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const st = {
       v: 2, phase: 'play', total: Math.max(1, Math.min(30, totalRounds | 0)), round: 1,
       players, scores, firstStarter: starter, starter, log: [],
+      stats: stats || emptyStats(),
     };
     startRound(st);
     return st;
   }
-  function lobby(lastPlayers) { return { v: 2, phase: 'lobby', lastPlayers: lastPlayers || null }; }
+  function lobby(lastPlayers, stats) { return { v: 2, phase: 'lobby', lastPlayers: lastPlayers || null, stats: stats || emptyStats() }; }
+
+  // ---------- Statistik (bleibt über alle Spiele erhalten) ----------
+  function emptyStats() { return { p: {}, games: [] }; }
+  function recordGame(st) {
+    const stats = st.stats || emptyStats();
+    stats.p = stats.p || {}; stats.games = stats.games || [];
+    const pl = playersOf(st), t = totals(st);
+    const best = Math.min(...pl.map((q) => t[q]));
+    const winners = pl.filter((q) => t[q] === best);
+    pl.forEach((q) => {
+      const a = stats.p[q] || (stats.p[q] = { g: 0, s: 0, r: 0, rs: 0, mp: 0 });
+      const sc = st.scores[q] || [];
+      a.g += 1;                                   // Spiele
+      if (winners.includes(q)) a.s += 1;          // Siege
+      a.r += sc.length;                           // gespielte Runden
+      a.rs += sc.filter((x) => x === 0).length;   // gewonnene Runden
+      a.mp += t[q];                               // Minuspunkte gesamt
+    });
+    stats.games = stats.games.concat([{ d: Date.now(), pl, t, w: winners, r: st.round }]).slice(-30);
+    st.stats = stats;
+  }
 
   function startRound(st) {
     const deck = newDeck();
@@ -919,6 +962,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     });
     st.lastRound = { winner: w, doubled, losers };
     st.phase = st.round >= st.total ? 'gameEnd' : 'roundEnd';
+    if (st.phase === 'gameEnd') recordGame(st);
     addLog(st, { p: w, a: 'win' });
   }
 
@@ -942,7 +986,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     runValue, meldValue, penaltyOf, handPenalty, rankAt,
     analyzeSet, analyzeRun, analyzeMeld, addToMeld,
     newGame, lobby, startRound, drawDeck, drawDiscard, layMeld, addCards, takeBack, discard, nextRound,
-    tentValue, tentMelds, totals, other, playersOf, nextPlayer,
+    tentValue, tentMelds, totals, other, playersOf, nextPlayer, emptyStats,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Rules;
   root.Rules = Rules;
@@ -962,10 +1006,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
 
   // ---------- Tisch und Platz aus dem Link ----------
   const qs = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
-  let table = qs.get('t'), seat = +qs.get('p');
+  let table = qs.get('t'), seat = +qs.get('p'), seatKey = qs.get('k') || '';
   try {
-    if (table && SEATS.includes(seat)) localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat }));
-    else { const s = JSON.parse(localStorage.getItem('romme-link') || 'null'); if (s) { table = s.t; seat = s.p; } }
+    if (table && SEATS.includes(seat)) localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat, k: seatKey }));
+    else { const s = JSON.parse(localStorage.getItem('romme-link') || 'null'); if (s) { table = s.t; seat = s.p; seatKey = s.k || ''; } }
   } catch (e) { /* ohne Speicher geht es auch */ }
 
   const me = () => seat;
@@ -1018,6 +1062,9 @@ if (window.FIREBASE_CONFIG.apiKey) {
         if (cb) cb(r);
       },
       async resetSeat() {},
+      async getKeys() { const k = {}; SEATS.forEach((q) => { k[q] = 'test' + q; }); return k; },
+      async createTable() {},
+      async newKey() { return 'test'; },
     };
   }
 
@@ -1028,10 +1075,20 @@ if (window.FIREBASE_CONFIG.apiKey) {
         firebase.initializeApp(CFG);
         const cred = await firebase.auth().signInAnonymously();
         uid = cred.user.uid;
-        base = firebase.database().ref('tische/' + table);
+        if (table) base = firebase.database().ref('tische/' + table);
       },
+      // Jedes Gerät mit dem richtigen Link-Schlüssel darf an seinen Platz
       async claim(p) {
-        try { await base.child('plaetze/' + p).set(uid); return true; } catch (e) { return false; }
+        try { await base.child('plaetze/' + p + '/' + uid).set(seatKey); return true; } catch (e) { return false; }
+      },
+      async getKeys() { const s = await firebase.database().ref('schluessel/' + table).once('value'); return s.val() || {}; },
+      async createTable(code, keys) { await firebase.database().ref('schluessel/' + code).set(keys); },
+      // Neuer Link für einen Platz: alter Schlüssel ungültig, alle Geräte dieses Platzes abgemeldet
+      async newKey(q) {
+        const k = randomCode(18);
+        await firebase.database().ref('schluessel/' + table + '/' + q).set(k);
+        await base.child('plaetze/' + q).remove();
+        return k;
       },
       subscribe(f, onErr) {
         base.child('spiel').on('value', (snap) => {
@@ -1138,12 +1195,18 @@ if (window.FIREBASE_CONFIG.apiKey) {
     sizeCards();
     const ov = $('#overlay');
     if (menuOpen) { if (state && state.phase === 'play') renderTable(); return; }
-    if (!state || state.phase === 'lobby') { showLobby(); return; }
+    if (!state || state.phase === 'lobby') {
+      $('#opp').innerHTML = ''; $('#score').innerHTML = ''; // im Startbildschirm keine alten Spielinfos oben
+      setTopHeight(); showLobby(); return;
+    }
     if (state.phase === 'roundEnd' || state.phase === 'gameEnd') { renderTable(); showRoundEnd(); return; }
     ov.hidden = true;
     renderTable();
   }
 
+  function setTopHeight() {
+    document.documentElement.style.setProperty('--toph', $('#top').offsetHeight + 'px');
+  }
   function renderTable() {
     const st = state, p = me();
     const prev = lastRendered || {};
@@ -1239,6 +1302,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       h.appendChild(el);
     }
     layoutHand();
+    setTopHeight();
     if (before) animateChanges(before, prev, st);
     lastRendered = st;
 
@@ -1534,7 +1598,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
       '<p><b>Wie viele Runden?</b></p>' +
       '<div class="row stepper"><button id="rMinus" aria-label="weniger">−</button><span class="val" id="rVal">' + lobbyRounds + '</span><button id="rPlus" aria-label="mehr">+</button></div>' +
       '<button class="btn primary" id="bStart">Spiel starten</button>' +
-      '<p class="note" id="startNote"></p>'
+      '<p class="note" id="startNote"></p>' +
+      '<h2 style="margin-top:18px">Statistik</h2>' + statsHtml(state && state.stats, true)
     );
     const tc = pnl.querySelector('#titleCards');
     if (tc) ['0h1', '0s13', '0d12', 'J0'].forEach((id) => tc.appendChild(cardEl(id)));
@@ -1561,7 +1626,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       unlockAudio();
       if (lobbyPlayers.length < 2) { toast('Bitte mindestens zwei Mitspieler antippen.', true); return; }
       const n = lobbyRounds, pl = lobbyPlayers.slice();
-      sync.transact((st) => (st && st.phase !== 'lobby' && st.phase !== 'gameEnd') ? undefined : R.newGame(n, pl));
+      sync.transact((st) => (st && st.phase !== 'lobby' && st.phase !== 'gameEnd') ? undefined : R.newGame(n, pl, null, st && st.stats));
     };
   }
 
@@ -1614,47 +1679,89 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const bn = pnl.querySelector('#bNext');
     if (bn) bn.onclick = () => sync.transact((s) => { try { if (s.round !== st.round) return undefined; R.nextRound(s); return s; } catch (e) { return undefined; } });
     const bw = pnl.querySelector('#bNew');
-    if (bw) bw.onclick = () => sync.transact((s) => (s && s.phase === 'gameEnd') ? R.lobby(R.playersOf(s)) : undefined);
+    if (bw) bw.onclick = () => sync.transact((s) => (s && s.phase === 'gameEnd') ? R.lobby(R.playersOf(s), s.stats) : undefined);
   }
 
   function showMessage(html) { panel(html); }
 
-  const linkFor = (code, q) => location.origin + location.pathname + '?t=' + code + '&p=' + q;
+  const linkFor = (code, q, k) => location.origin + location.pathname + '?t=' + code + '&p=' + q + (k ? '&k=' + k : '');
+  const linkList = (code, keys) => SEATS.map((q) => '<div class="linkbox"><b>' + (q === seat && code === table ? 'Dein Link' : 'Link für ' + esc(NAMES[q])) + '</b>' +
+    esc(linkFor(code, q, keys[q])) + '</div><button class="btn" data-copy="' + esc(linkFor(code, q, keys[q])) + '">Kopieren</button>' +
+    (code === table && q !== 1 ? '<button class="btn" data-renew="' + q + '">Neuen Link erzeugen</button>' : '')).join('');
 
-  function showSetup() {
-    const code = randomCode();
-    panel('<h1>Neuer Spieltisch</h1>' +
-      '<p>Dieser Link enthält noch keinen Spieltisch. Hier sind neue Links mit einem geheimen Tischcode, einer für jeden:</p>' +
-      SEATS.map((q) => '<div class="linkbox"><b>Link für ' + esc(NAMES[q]) + '</b>' + esc(linkFor(code, q)) + '</div>' +
-        '<button class="btn" data-copy="' + esc(linkFor(code, q)) + '">Kopieren</button>').join('') +
-      '<p class="note">Alle Links gut aufheben. Wer einen Link kennt, kommt an den Tisch – aber nur, solange der Platz noch frei ist.</p>' +
-      '<a class="btn primary" style="display:inline-block;text-decoration:none" href="' + esc(linkFor(code, 1)) + '">Jetzt mit meinem Link öffnen</a>'
-    );
-    document.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
+  async function showSetup() {
+    panel('<h1>Neuer Spieltisch</h1><p>Dieser Link enthält noch keinen Spieltisch. Soll ein neuer Tisch mit eigenen Links für ' +
+      SEATS.map((q) => esc(NAMES[q])).join(', ') + ' angelegt werden?</p>' +
+      '<button class="btn primary" id="sCreate">Neuen Tisch anlegen</button>');
+    $('#sCreate').onclick = async () => {
+      const code = randomCode(14), keys = {};
+      SEATS.forEach((q) => { keys[q] = randomCode(18); });
+      try {
+        if (!TEST) { await sync.init(); await sync.createTable(code, keys); }
+      } catch (err) { toast('Anlegen hat nicht geklappt: ' + (err.message || err), true); return; }
+      panel('<h1>Tisch angelegt</h1><p>Jede Person bekommt ihren eigenen Link. Jeder Link funktioniert auf beliebig vielen Geräten dieser Person (Handy, Tablet, Computer).</p>' +
+        linkList(code, keys) +
+        '<p class="note">Alle Links gut aufheben und nur an die jeweilige Person geben.</p>' +
+        '<a class="btn primary" style="display:inline-block;text-decoration:none" href="' + esc(linkFor(code, 1, keys[1])) + '">Jetzt mit dem Link von ' + esc(NAMES[1]) + ' öffnen</a>');
+      document.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
+    };
   }
 
-  function showMenu() {
+  async function showMenu() {
     menuOpen = true;
     const pnl = panel('<h2>Einstellungen</h2>' +
       '<button class="btn" id="mAbort">Spiel abbrechen und neu beginnen</button>' +
-      '<h2 style="margin-top:18px">Links und Geräte</h2>' +
-      SEATS.map((q) => '<div class="linkbox"><b>' + (q === seat ? 'Dein Link' : 'Link für ' + esc(NAMES[q])) + '</b>' + esc(linkFor(table, q)) + '</div>' +
-        '<button class="btn" data-copy="' + esc(linkFor(table, q)) + '">Kopieren</button>' +
-        (q !== seat ? '<button class="btn" data-reset="' + q + '">Gerät neu freigeben</button>' : '')).join('') +
-      '<p class="note">„Gerät neu freigeben“ ist nötig, wenn jemand ein neues Gerät hat oder die Browserdaten gelöscht wurden. Danach dort einfach den Link öffnen.</p>' +
+      '<h2 style="margin-top:18px">Links</h2><div id="mLinks"><div class="spinner"></div></div>' +
+      '<p class="note">Jeder Link funktioniert auf allen Geräten der Person. „Neuen Link erzeugen“ nur, wenn ein Link in falsche Hände geraten oder ein Gerät verloren gegangen ist: Dann gilt der alte Link nicht mehr, und alle Geräte dieser Person brauchen den neuen.</p>' +
       '<button class="btn primary" id="mClose">Schließen</button>');
-    pnl.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
     pnl.querySelector('#mClose').onclick = () => { menuOpen = false; render(); };
-    pnl.querySelectorAll('[data-reset]').forEach((b) => b.onclick = async () => {
-      const q = +b.dataset.reset;
-      if (!confirm('Platz von ' + NAMES[q] + ' freigeben? Das nächste Gerät, das den Link öffnet, bekommt den Platz.')) return;
-      try { await sync.resetSeat(q); toast('Freigegeben. Jetzt bei ' + NAMES[q] + ' den Link öffnen.'); } catch (err) { toast('Hat nicht geklappt: ' + err.message, true); }
-    });
     pnl.querySelector('#mAbort').onclick = () => {
-      if (!confirm('Das laufende Spiel wirklich abbrechen?')) return;
+      if (!confirm('Das laufende Spiel wirklich abbrechen? Es zählt dann nicht für die Statistik.')) return;
       menuOpen = false;
-      sync.transact((s) => R.lobby(s ? R.playersOf(s) : null));
+      sync.transact((s) => R.lobby(s ? R.playersOf(s) : null, s && s.stats));
     };
+    const fill = async () => {
+      let keys;
+      try { keys = await sync.getKeys(); } catch (err) { pnl.querySelector('#mLinks').innerHTML = '<p>Links konnten nicht geladen werden.</p>'; return; }
+      const box = pnl.querySelector('#mLinks'); if (!box) return;
+      box.innerHTML = linkList(table, keys);
+      box.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
+      box.querySelectorAll('[data-renew]').forEach((b) => b.onclick = async () => {
+        const q = +b.dataset.renew;
+        if (!confirm('Neuen Link für ' + NAMES[q] + ' erzeugen? Der bisherige Link funktioniert dann nicht mehr, auf allen Geräten von ' + NAMES[q] + ' muss der neue Link geöffnet werden.')) return;
+        try { await sync.newKey(q); toast('Neuer Link für ' + NAMES[q] + ' erzeugt.'); fill(); } catch (err) { toast('Hat nicht geklappt: ' + err.message, true); }
+      });
+    };
+    fill();
+  }
+
+  // ---------- Statistik ----------
+  function statsHtml(stats, compact) {
+    stats = stats || {}; const P = stats.p || {}, games = stats.games || [];
+    if (!games.length) return '<p class="note">Noch keine Spiele gespeichert. Die Statistik füllt sich nach dem ersten fertigen Spiel.</p>';
+    const rows = SEATS.filter((q) => P[q] && P[q].g).sort((x, y) => (P[y].s - P[x].s) || (P[x].mp / P[x].r - P[y].mp / P[y].r))
+      .map((q, i) => {
+        const a = P[q], avg = a.r ? Math.round(a.mp / a.r) : 0;
+        return '<tr><td class="who">' + (i === 0 ? '🏆 ' : '') + esc(NAMES[q]) + '</td><td>' + a.g + '</td><td><b>' + a.s + '</b></td><td>' + a.rs + '</td><td>' + avg + '</td></tr>';
+      }).join('');
+    let html = '<table class="stats"><tr><th></th><th>Spiele</th><th>Siege</th><th>Runden<br>gewonnen</th><th>Ø Minus-<br>punkte</th></tr>' + rows + '</table>';
+    if (!compact) {
+      const last = games.slice(-6).reverse().map((g) => {
+        const d = new Date(g.d), ds = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+        return '<li><span class="d">' + ds + '</span> ' + g.w.map((q) => '<b>' + esc(NAMES[q]) + '</b>').join(' & ') + ' gewinnt · ' +
+          g.pl.map((q) => esc(NAMES[q]) + ' ' + g.t[q]).join(', ') + '</li>';
+      }).join('');
+      html += '<h2 style="margin-top:16px">Letzte Spiele</h2><ul class="lastgames">' + last + '</ul>' +
+        '<p class="note">Ø Minuspunkte = durchschnittliche Minuspunkte pro Runde. Weniger ist besser.</p>';
+    }
+    return html;
+  }
+  function showStats() {
+    const q = $('#quitLayer');
+    q.innerHTML = '<div class="panel"><div class="big-emoji">📊</div><h1>Statistik</h1>' + statsHtml(state && state.stats, false) +
+      '<button class="btn primary" id="stClose">Schließen</button></div>';
+    q.hidden = false; q.classList.add('enter');
+    q.querySelector('#stClose').onclick = closeQuit;
   }
 
   // ---------- Beenden ----------
@@ -1699,8 +1806,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }, err ? 5500 : 3500);
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-  function randomCode() {
-    const abc = 'abcdefghjkmnpqrstuvwxyz23456789'; const a = new Uint32Array(14); crypto.getRandomValues(a);
+  function randomCode(n) {
+    const abc = 'abcdefghjkmnpqrstuvwxyz23456789'; const a = new Uint32Array(n || 14); crypto.getRandomValues(a);
     return Array.from(a, (x) => abc[x % abc.length]).join('');
   }
   function copy(text, btn) {
@@ -1744,6 +1851,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }, true);
     $('#gear').onclick = showMenu;
     $('#quit').onclick = askQuit;
+    $('#statsBtn').onclick = showStats;
     window.addEventListener('resize', () => { if (state && state.phase !== 'lobby') { sizeCards(); layoutHand(); } });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { wakeLock = null; } });
 
@@ -1770,8 +1878,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
   async function claimLoop() {
     const ok = await sync.claim(seat);
     if (!ok) {
-      showMessage('<div class="big-emoji">🔒</div><h2>Dieses Gerät ist noch nicht freigegeben</h2>' +
-        '<p>' + esc(NAMES[1]) + ' muss in den Einstellungen das Gerät neu freigeben. Danach geht es hier von selbst weiter.</p><div class="spinner"></div>');
+      showMessage('<div class="big-emoji">🔒</div><h2>Dieser Link funktioniert nicht</h2>' +
+        '<p>Vielleicht ist es ein alter Link. Bitte bei ' + esc(NAMES[1]) + ' nach dem aktuellen Link fragen und diesen öffnen.</p><div class="spinner"></div>');
       setTimeout(claimLoop, 8000);
       return;
     }
