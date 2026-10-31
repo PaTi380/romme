@@ -748,17 +748,17 @@ if (window.FIREBASE_CONFIG.apiKey) {
       if (c.rank !== m.rank) return { err: 'Der Wert passt nicht zu dieser Gruppe.' };
       const suits = m.cards.filter((x) => !isJoker(x)).map((x) => parse(x).suit);
       if (suits.includes(c.suit)) return { err: 'Diese Farbe liegt dort schon.' };
+      // Hausregel: Solange die Gruppe noch keine 4 Karten hat, wird angelegt (der Joker bleibt liegen).
+      // Erst bei 4 Karten mit Joker darf die fehlende Farbe gegen den Joker getauscht werden.
+      if (n < 4) { nm.cards.push(id); nm.cards = sortSet(nm.cards); return { meld: nm }; }
       const jIdx = m.cards.findIndex(isJoker);
-      if (jIdx >= 0 && allowSwap) {
-        const joker = nm.cards[jIdx];
-        nm.cards.splice(jIdx, 1);
-        nm.cards.unshift(id);
-        nm.cards = sortSet(nm.cards);
-        return { meld: nm, joker };
-      }
-      if (n >= 4) return { err: 'Die Gruppe ist schon vollständig.' };
-      nm.cards.push(id); nm.cards = sortSet(nm.cards);
-      return { meld: nm };
+      if (jIdx < 0) return { err: 'Die Gruppe ist schon vollständig.' };
+      if (!allowSwap) return { err: 'Joker tauschen geht erst, wenn du selbst ausgelegt hast.' };
+      const joker = nm.cards[jIdx];
+      nm.cards.splice(jIdx, 1);
+      nm.cards.push(id);
+      nm.cards = sortSet(nm.cards);
+      return { meld: nm, joker };
     }
     // Reihe
     if (c.joker) {
