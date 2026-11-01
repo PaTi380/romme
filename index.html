@@ -570,6 +570,33 @@ button { font: inherit; cursor: pointer; }
 .oppchip.away .avatar { filter: grayscale(.6); opacity: .75; }
 @keyframes breathe2 { 50% { box-shadow: 0 0 0 6px rgba(47,191,90,.08); } }
 
+/* ---------- Wer hat was ausgelegt ---------- */
+.meld { border-top: 3px solid var(--pc, transparent); }
+.meld.first { margin-left: 4px; }
+.meld .owner {
+  position: absolute; top: -12px; left: 8px; z-index: 3;
+  font-family: var(--sans, inherit); font-weight: 700; font-size: 13px; line-height: 1; color: #fff;
+  background: var(--pc); padding: 4px 10px; border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4); white-space: nowrap; pointer-events: none;
+}
+#melds { padding-top: 20px; row-gap: 22px; }
+#opp .avatar { background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.45), var(--pc, var(--gold)) 60%); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }
+
+/* Knopf geht gerade nicht: grau, aber antippbar für einen Hinweis */
+.btn.off { opacity: .38; filter: saturate(.2); box-shadow: none; }
+.btn.off:active { transform: none; }
+
+/* Sortieren */
+#bSort { flex: 0 0 auto !important; padding-left: 14px; padding-right: 14px; min-width: 0; }
+#hand .card.shifting { transition: none; }
+
+/* Kreuz grün, damit es sich klar von Pik (schwarz) abhebt */
+.card.clubs { color: #11733a; }
+@media (max-width: 600px) {
+  #bSort span { display: none; }
+  #bSort { font-size: 22px; padding-left: 16px; padding-right: 16px; }
+}
+
 </style>
 </head>
 <body>
@@ -592,6 +619,7 @@ button { font: inherit; cursor: pointer; }
   </main>
   <section id="handArea"><div id="hand"></div><div id="dropMarker" hidden></div></section>
   <nav id="actions">
+    <button class="btn ghost" id="bSort">⇅ <span>Nach Farben</span></button>
     <button class="btn" id="bLay">Auslegen</button>
     <button class="btn" id="bDiscard">Abwerfen</button>
     <button class="btn hidden" id="bBack">Zurücknehmen</button>
@@ -1081,6 +1109,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const clash = SEATS.some((q) => q !== p && (NAMES[q] || '').charAt(0).toUpperCase() === n.charAt(0).toUpperCase());
     return clash ? n.charAt(0).toUpperCase() + n.charAt(1).toLowerCase() : n.charAt(0).toUpperCase();
   }
+  // feste Farbe je Platz – an Namensschild und an den ausgelegten Karten gleich
+  const SEAT_COLOR = { 1: '#4f86d1', 2: '#d65f7a', 3: '#2fae95', 4: '#9a72d4' };
   const cardsWord = (n) => n + (n === 1 ? ' Karte' : ' Karten');
 
   // ---------- lokaler Zustand ----------
@@ -1225,6 +1255,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       el.innerHTML = '<div class="idx tl">' + idx + '</div><div class="face"><span class="star">★</span><span class="jtxt">Joker</span></div>';
     } else {
       if (c.suit === 'h' || c.suit === 'd') el.classList.add('red');
+      if (c.suit === 'c') el.classList.add('clubs');
       const r = R.RANK_SHORT[c.rank] || c.rank, s = R.SUIT_SYM[c.suit];
       const idx = '<span class="r">' + r + '</span><span class="s">' + s + '</span>';
       let face;
@@ -1304,7 +1335,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       const chip = document.createElement('div');
       chip.className = 'oppchip' + (st.phase === 'play' && st.turn === q ? ' active' : '');
       chip.dataset.seat = q;
-      const av = document.createElement('span'); av.className = 'avatar'; av.textContent = initials(q);
+      const av = document.createElement('span'); av.className = 'avatar'; av.textContent = initials(q); av.style.setProperty('--pc', SEAT_COLOR[q]);
       const nm = document.createElement('span'); nm.className = 'name'; nm.textContent = NAMES[q];
       chip.append(av, nm);
       // verdeckte Karten zum Selbstzählen
@@ -1376,14 +1407,28 @@ if (window.FIREBASE_CONFIG.apiKey) {
     if (!st.melds.length) {
       ml.innerHTML = '<div class="hint">Hier liegen später die ausgelegten Karten.</div>';
     }
-    for (const m of st.melds) {
+    // nach Spieler gruppiert (feste Reihenfolge am Tisch), innerhalb in Auslege-Reihenfolge
+    const ord = players();
+    const meldsSorted = st.melds.slice().sort((a, b) => (ord.indexOf(a.owner) - ord.indexOf(b.owner)) || (a.id - b.id));
+    let lastOwner = null;
+    for (const m of meldsSorted) {
       const box = document.createElement('div');
       // vier gleiche ohne Joker: hier geht nichts mehr (kein Anlegen, kein Jokertausch) – eng zusammenlegen
       const full = m.type === 'set' && m.cards.length === 4 && !m.cards.some(R.isJoker);
       box.className = 'meld' + (m.tent ? ' tent' : '') + (full ? ' full' : '');
       box.dataset.meld = m.id;
       box.dataset.owner = m.owner;
+      box.style.setProperty('--pc', SEAT_COLOR[m.owner] || '#888');
+      if (m.owner !== lastOwner) {
+        // Namensschild vor der ersten Gruppe jedes Spielers
+        box.classList.add('first');
+        const tag = document.createElement('span'); tag.className = 'owner';
+        tag.textContent = m.owner === p ? 'Du' : (NAMES[m.owner] || '?');
+        box.ownerTag = tag;
+        lastOwner = m.owner;
+      }
       m.cards.forEach((id) => box.appendChild(cardEl(id, { small: true })));
+      if (box.ownerTag) box.appendChild(box.ownerTag);
       if (full) { const bd = document.createElement('span'); bd.className = 'fullbadge'; bd.textContent = '4×'; box.appendChild(bd); }
       if (myTurn && st.step === 'play' && sel.length && fitsMeld(m.id)) box.classList.add('fits');
       box.addEventListener('click', () => onMeldTap(m.id));
@@ -1406,8 +1451,9 @@ if (window.FIREBASE_CONFIG.apiKey) {
 
     // Knöpfe
     const playing = myTurn && st.step === 'play';
-    $('#bLay').disabled = false;
-    $('#bDiscard').disabled = false;
+    // Knöpfe grau, solange damit nichts geht (antippen erklärt trotzdem, was fehlt)
+    $('#bLay').classList.toggle('off', !(playing && canLay()));
+    $('#bDiscard').classList.toggle('off', !(playing && sel.length === 1));
     const hasTent = R.tentMelds(st, p).length > 0;
     $('#bBack').classList.toggle('hidden', !(playing && hasTent));
 
@@ -1552,6 +1598,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
     setTimeout(() => box.remove(), 6500);
   }
 
+  function canLay() {
+    if (sel.length < 3) return false;
+    try { R.layMeld(JSON.parse(JSON.stringify(state)), me(), sel.slice()); return true; } catch (e) { return false; }
+  }
   function fitsMeld(meldId) {
     try {
       const copy = JSON.parse(JSON.stringify(state));
@@ -1596,7 +1646,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     unlockAudio();
     if (!state || state.phase !== 'play') return;
     if (!inGame()) { toast('Du spielst diese Runde nicht mit.'); return; }
-    if (state.turn !== me()) { toast(NAMES[state.turn] + ' ist gerade dran. Sortieren geht aber: Karte festhalten und zur Seite schieben.'); return; }
+    if (state.turn !== me()) { toast(NAMES[state.turn] + ' ist gerade dran. Sortieren geht aber jederzeit.'); return; }
     if (state.step === 'draw') { toast('Nimm zuerst eine Karte vom Stapel oder vom Ablagestapel.'); return; }
     const i = sel.indexOf(id);
     if (i >= 0) sel.splice(i, 1); else sel.push(id);
@@ -1629,6 +1679,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
   function onLay() {
     const m = notMyTurnMsg(); if (m) { toast(m); return; }
     if (sel.length < 3) { toast('Tippe zuerst mindestens 3 Karten an, die zusammenpassen. Sie rutschen dann nach oben.'); return; }
+    if (!canLay()) {
+      const any = state.melds.some((mm) => fitsMeld(mm.id));
+      if (any) { toast('Diese Karten passen an eine liegende Reihe – tippe die grün leuchtende Reihe an.'); return; }
+    }
     const ids = sel.slice();
     if (act(game((st) => R.layMeld(st, me(), ids)))) sel = [];
   }
@@ -1643,13 +1697,36 @@ if (window.FIREBASE_CONFIG.apiKey) {
   }
   function onBack() { act(game((st) => R.takeBack(st, me()))); sel = []; }
 
-  // Karten verschieben (Finger oder Maus) – kurzes Tippen wählt aus
+  // Ein Tipp sortiert die Hand: abwechselnd nach Farben und nach Zahlen
+  let sortMode = 0;
+  function onSort() {
+    unlockAudio();
+    if (!state || state.phase !== 'play' || !inGame()) return;
+    const hand = state.hands[me()] || [];
+    const SO = { s: 0, h: 1, c: 2, d: 3 };
+    const key = (id) => { const c = R.parse(id); return c.joker ? null : { s: SO[c.suit], r: c.rank === 1 ? 14 : c.rank }; };
+    const bySuit = sortMode === 0;
+    const ids = orderedHand(hand, state.dealId || state.round).sort((x, y) => {
+      const a = key(x), b = key(y);
+      if (!a || !b) return (a ? 0 : 1) - (b ? 0 : 1); // Joker ganz rechts
+      return bySuit ? (a.s - b.s) || (a.r - b.r) : (a.r - b.r) || (a.s - b.s);
+    });
+    handOrder.ids = ids; saveOrder();
+    sortMode = 1 - sortMode;
+    $('#bSort span').textContent = sortMode === 0 ? 'Nach Farben' : 'Nach Zahlen';
+    toast(bySuit ? 'Nach Farben sortiert.' : 'Nach Zahlen sortiert.');
+    renderTable();
+  }
+
+  // Karten verschieben (Finger oder Maus) – kurzes Tippen wählt aus.
+  // Beim Ziehen rücken die anderen Karten sofort zur Seite, so sieht man, wo die Karte landet.
   function setupHandDrag() {
     const hand = $('#hand'), marker = $('#dropMarker');
+    marker.hidden = true;
     hand.addEventListener('pointerdown', (e) => {
       const el = e.target.closest('.card');
       if (!el || drag) return;
-      drag = { el, id: el.dataset.id, x0: e.clientX, y0: e.clientY, moved: false, pid: e.pointerId };
+      drag = { el, id: el.dataset.id, x0: e.clientX, y0: e.clientY, moved: false, pid: e.pointerId, off0: el.offsetLeft };
       try { el.setPointerCapture(e.pointerId); } catch (err) {}
     });
     hand.addEventListener('pointermove', (e) => {
@@ -1657,42 +1734,41 @@ if (window.FIREBASE_CONFIG.apiKey) {
       const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
       if (!drag.moved && Math.hypot(dx, dy) > 12) { drag.moved = true; drag.el.classList.add('dragging'); }
       if (!drag.moved) return;
-      drag.el.style.transform = 'translate(' + dx + 'px, ' + Math.min(0, dy) + 'px) scale(1.06)';
-      const pos = dropPos(e.clientX);
-      const r = hand.getBoundingClientRect();
-      marker.style.left = (pos.x - r.left) + 'px';
-      marker.hidden = false;
+      // passende Lücke suchen und die Karte dort einsetzen
+      const others = Array.from(hand.children).filter((c) => c !== drag.el);
+      let index = 0;
+      for (const c of others) { const r = c.getBoundingClientRect(); if (e.clientX > r.left + r.width / 2) index++; }
+      const cur = Array.prototype.indexOf.call(hand.children, drag.el);
+      if (index !== cur) {
+        const before = new Map(others.map((c) => [c, c.offsetLeft]));
+        hand.insertBefore(drag.el, others[index] || null);
+        layoutHand();
+        others.forEach((c) => {
+          const d = before.get(c) - c.offsetLeft;
+          if (d && c.animate && !REDUCED) c.animate([{ translate: d + 'px 0' }, { translate: '0 0' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        });
+      }
+      const x = dx - (drag.el.offsetLeft - drag.off0);
+      drag.el.style.transform = 'translate(' + x + 'px, ' + Math.min(0, dy) + 'px) scale(1.08)';
     });
     const end = (e) => {
       if (!drag || e.pointerId !== drag.pid) return;
-      const d = drag; drag = null; marker.hidden = true;
+      const d = drag; drag = null;
       lastHandTouch = Date.now();
       if (!d.moved) { if (e.type === 'pointerup') onCardTap(d.id); }
-      else if (e.type === 'pointerup') {
-        const pos = dropPos(e.clientX);
-        const ids = handOrder.ids.filter((x) => x !== d.id);
-        ids.splice(pos.index, 0, d.id);
-        handOrder.ids = ids; saveOrder();
+      else {
+        handOrder.ids = Array.from(hand.children).map((c) => c.dataset.id).filter(Boolean);
+        saveOrder();
+        // sanft an den neuen Platz gleiten
+        const r0 = d.el.getBoundingClientRect();
+        d.el.classList.remove('dragging'); d.el.style.transform = '';
+        const r1 = d.el.getBoundingClientRect();
+        if (d.el.animate && !REDUCED) d.el.animate([{ translate: (r0.left - r1.left) + 'px ' + (r0.top - r1.top) + 'px' }, { translate: '0 0' }], { duration: 200, easing: 'ease-out' });
       }
-      if (renderPending) { renderPending = false; render(); } else if (d.moved) renderTable();
+      if (renderPending) { renderPending = false; render(); } else if (d.moved) setTimeout(renderTable, 210);
     };
     hand.addEventListener('pointerup', end);
     hand.addEventListener('pointercancel', end);
-  }
-  // Wo würde die gezogene Karte landen? Index in der Reihenfolge ohne die gezogene Karte + x für die Markierung
-  function dropPos(clientX) {
-    const others = Array.from($('#hand').children).filter((c) => !drag || c !== drag.el);
-    let index = 0;
-    for (const c of others) { const r = c.getBoundingClientRect(); if (clientX > r.left + r.width / 2) index++; }
-    let x;
-    if (!others.length) x = clientX;
-    else if (index === 0) x = others[0].getBoundingClientRect().left - 4;
-    else if (index >= others.length) x = others[others.length - 1].getBoundingClientRect().right + 4;
-    else {
-      const a = others[index - 1].getBoundingClientRect(), b = others[index].getBoundingClientRect();
-      x = (Math.min(a.right, b.left + 20) + b.left) / 2;
-    }
-    return { index, x };
   }
 
   // ---------- Overlays ----------
@@ -1976,6 +2052,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     $('#bLay').onclick = onLay;
     $('#bDiscard').onclick = onDiscard;
     $('#bBack').onclick = onBack;
+    $('#bSort').onclick = onSort;
     setupHandDrag();
     // Ein Antippen der Hand darf nie gleichzeitig einen Knopf oder den Tisch auslösen
     document.addEventListener('click', (e) => {
