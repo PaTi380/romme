@@ -586,16 +586,11 @@ button { font: inherit; cursor: pointer; }
 .btn.off { opacity: .38; filter: saturate(.2); box-shadow: none; }
 .btn.off:active { transform: none; }
 
-/* Sortieren */
-#bSort { flex: 0 0 auto !important; padding-left: 14px; padding-right: 14px; min-width: 0; }
 #hand .card.shifting { transition: none; }
 
 /* Kreuz grün, damit es sich klar von Pik (schwarz) abhebt */
 .card.clubs { color: #11733a; }
-@media (max-width: 600px) {
-  #bSort span { display: none; }
-  #bSort { font-size: 22px; padding-left: 16px; padding-right: 16px; }
-}
+#hand, #hand .card { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 
 </style>
 </head>
@@ -619,7 +614,6 @@ button { font: inherit; cursor: pointer; }
   </main>
   <section id="handArea"><div id="hand"></div><div id="dropMarker" hidden></div></section>
   <nav id="actions">
-    <button class="btn ghost" id="bSort">⇅ <span>Nach Farben</span></button>
     <button class="btn" id="bLay">Auslegen</button>
     <button class="btn" id="bDiscard">Abwerfen</button>
     <button class="btn hidden" id="bBack">Zurücknehmen</button>
@@ -1646,7 +1640,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     unlockAudio();
     if (!state || state.phase !== 'play') return;
     if (!inGame()) { toast('Du spielst diese Runde nicht mit.'); return; }
-    if (state.turn !== me()) { toast(NAMES[state.turn] + ' ist gerade dran. Sortieren geht aber jederzeit.'); return; }
+    if (state.turn !== me()) { toast(NAMES[state.turn] + ' ist gerade dran. Sortieren geht aber: Karte festhalten und zur Seite schieben.'); return; }
     if (state.step === 'draw') { toast('Nimm zuerst eine Karte vom Stapel oder vom Ablagestapel.'); return; }
     const i = sel.indexOf(id);
     if (i >= 0) sel.splice(i, 1); else sel.push(id);
@@ -1696,27 +1690,6 @@ if (window.FIREBASE_CONFIG.apiKey) {
     if (act(game((st) => R.discard(st, me(), id)))) sel = [];
   }
   function onBack() { act(game((st) => R.takeBack(st, me()))); sel = []; }
-
-  // Ein Tipp sortiert die Hand: abwechselnd nach Farben und nach Zahlen
-  let sortMode = 0;
-  function onSort() {
-    unlockAudio();
-    if (!state || state.phase !== 'play' || !inGame()) return;
-    const hand = state.hands[me()] || [];
-    const SO = { s: 0, h: 1, c: 2, d: 3 };
-    const key = (id) => { const c = R.parse(id); return c.joker ? null : { s: SO[c.suit], r: c.rank === 1 ? 14 : c.rank }; };
-    const bySuit = sortMode === 0;
-    const ids = orderedHand(hand, state.dealId || state.round).sort((x, y) => {
-      const a = key(x), b = key(y);
-      if (!a || !b) return (a ? 0 : 1) - (b ? 0 : 1); // Joker ganz rechts
-      return bySuit ? (a.s - b.s) || (a.r - b.r) : (a.r - b.r) || (a.s - b.s);
-    });
-    handOrder.ids = ids; saveOrder();
-    sortMode = 1 - sortMode;
-    $('#bSort span').textContent = sortMode === 0 ? 'Nach Farben' : 'Nach Zahlen';
-    toast(bySuit ? 'Nach Farben sortiert.' : 'Nach Zahlen sortiert.');
-    renderTable();
-  }
 
   // Karten verschieben (Finger oder Maus) – kurzes Tippen wählt aus.
   // Beim Ziehen rücken die anderen Karten sofort zur Seite, so sieht man, wo die Karte landet.
@@ -1768,6 +1741,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
       if (renderPending) { renderPending = false; render(); } else if (d.moved) setTimeout(renderTable, 210);
     };
     hand.addEventListener('pointerup', end);
+    // langes Festhalten soll kein Android-Menü öffnen (das würde das Verschieben abbrechen)
+    hand.addEventListener('contextmenu', (e) => e.preventDefault());
     hand.addEventListener('pointercancel', end);
   }
 
@@ -2052,7 +2027,6 @@ if (window.FIREBASE_CONFIG.apiKey) {
     $('#bLay').onclick = onLay;
     $('#bDiscard').onclick = onDiscard;
     $('#bBack').onclick = onBack;
-    $('#bSort').onclick = onSort;
     setupHandDrag();
     // Ein Antippen der Hand darf nie gleichzeitig einen Knopf oder den Tisch auslösen
     document.addEventListener('click', (e) => {
