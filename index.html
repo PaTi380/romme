@@ -27,6 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
+window.ROMME_VERSION = '60c470fe5d';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -2020,7 +2021,22 @@ if (window.FIREBASE_CONFIG.apiKey) {
     } catch (e) {}
   }
 
-  // ---------- Start ----------
+  // ---------- Neue Version von selbst laden ----------
+  // Die App bleibt auf dem Tablet oft tagelang offen. Darum regelmäßig nachsehen, ob es eine neuere Fassung gibt,
+  // und dann neu laden (der Spielstand liegt im Internet, es geht nichts verloren).
+  function checkUpdate() {
+    if (TEST || !window.ROMME_VERSION || location.protocol === 'file:') return;
+    fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' }).then((r) => r.ok ? r.text() : '').then((t) => {
+      const m = t.match(/ROMME_VERSION = '([0-9a-f]{6,})'/);
+      if (!m || m[1] === window.ROMME_VERSION) return;
+      if (drag || !$('#quitLayer').hidden) { setTimeout(checkUpdate, 15000); return; }
+      const u = new URL(location.href); u.searchParams.set('v', m[1]); location.replace(u.href); // neue Adresse umgeht den Zwischenspeicher
+    }).catch(() => {});
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+  setInterval(checkUpdate, 5 * 60 * 1000);
+  setTimeout(checkUpdate, 20000);
+
   async function boot() {
     $('#deck').onclick = onDeck;
     $('#discard').onclick = onDiscardPile;
