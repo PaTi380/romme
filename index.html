@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = '5671fc5cdc';
+window.ROMME_VERSION = '173dda39c9';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -1033,12 +1033,12 @@ if (window.FIREBASE_CONFIG.apiKey) {
     st.lastDrawn[p] = null;
     addLog(st, { p, a: 'discard', c: [id] });
     if (!st.hands[p].length) {
-      // Handrommé beendet die Runde sofort – alle anderen zahlen doppelt.
-      if (st.meldedThisTurn) { endRound(st, p); return null; }
+      // Handrommé (alles in einem Zug, und noch niemand sonst hat ausgelegt) beendet die Runde sofort – alle anderen zahlen doppelt.
+      if (isHandromme(st, p)) { endRound(st, p, true); return null; }
       // Sonst ist nur dieser Spieler raus, die anderen spielen weiter, bis einer übrig ist.
       st.out = (st.out || []).concat([p]);
       addLog(st, { p, a: 'out' });
-      if (activePlayers(st).length <= 1) { endRound(st, p); return null; }
+      if (activePlayers(st).length <= 1) { endRound(st, p, false); return null; }
     }
     st.turn = nextActive(st, p);
     st.step = 'draw';
@@ -1046,8 +1046,11 @@ if (window.FIREBASE_CONFIG.apiKey) {
     return null;
   }
 
-  function endRound(st, w) {
-    const doubled = !!st.meldedThisTurn;
+  function isHandromme(st, p) {
+    return !!st.meldedThisTurn && playersOf(st).every((q) => q === p || !st.hasMeld[q]);
+  }
+  function endRound(st, w, doubled) {
+    doubled = !!doubled;
     const out = (st.out || []).slice();
     if (!out.includes(w)) out.push(w);
     const losers = [];
