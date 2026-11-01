@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = '60c470fe5d';
+window.ROMME_VERSION = '5671fc5cdc';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -592,6 +592,8 @@ button { font: inherit; cursor: pointer; }
 /* Kreuz grün, damit es sich klar von Pik (schwarz) abhebt */
 .card.clubs { color: #11733a; }
 #hand, #hand .card { -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.donetag { font-weight: 700; font-size: 14px; color: #33240a; background: linear-gradient(180deg, var(--gold-hi), var(--gold)); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.oppchip.done .avatar { opacity: .8; }
 
 </style>
 </head>
@@ -815,6 +817,14 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const pl = playersOf(st), i = pl.indexOf(p);
     return pl[(i + 1) % pl.length];
   }
+  // nächster Spieler, der in dieser Runde noch Karten hat (wer schon raus ist, wird übersprungen)
+  function nextActive(st, p) {
+    const pl = playersOf(st), out = st.out || [];
+    let i = pl.indexOf(p);
+    for (let k = 0; k < pl.length; k++) { i = (i + 1) % pl.length; if (!out.includes(pl[i])) return pl[i]; }
+    return p;
+  }
+  const activePlayers = (st) => playersOf(st).filter((q) => !(st.out || []).includes(q));
   const other = (p) => (p === 1 ? 2 : 1); // nur noch für alte Zwei-Spieler-Stände
 
   function newGame(totalRounds, players, starter, stats) {
@@ -848,7 +858,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       a.g += 1;                                   // Spiele
       if (winners.includes(q)) a.s += 1;          // Siege
       a.r += sc.length;                           // gespielte Runden
-      a.rs += sc.filter((x) => x === 0).length;   // gewonnene Runden
+      a.rs += st.roundWinners ? st.roundWinners.filter((x) => x === q).length : sc.filter((x) => x === 0).length; // gewonnene Runden (als Erster raus)
       a.mp += t[q];                               // Minuspunkte gesamt
     });
     stats.games = stats.games.concat([{ d: Date.now(), pl, t, w: winners, r: st.round }]).slice(-30);
@@ -874,6 +884,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     st.meldedThisTurn = false;
     st.phase = 'play';
     st.lastRound = null;
+    st.out = [];                   // wer in dieser Runde schon fertig ist, in Reihenfolge
     addLog(st, { p: st.starter, a: 'start', c: [open] });
   }
 
@@ -1021,8 +1032,15 @@ if (window.FIREBASE_CONFIG.apiKey) {
     st.openCard = null;
     st.lastDrawn[p] = null;
     addLog(st, { p, a: 'discard', c: [id] });
-    if (!st.hands[p].length) { endRound(st, p); return null; }
-    st.turn = nextPlayer(st, p);
+    if (!st.hands[p].length) {
+      // Handrommé beendet die Runde sofort – alle anderen zahlen doppelt.
+      if (st.meldedThisTurn) { endRound(st, p); return null; }
+      // Sonst ist nur dieser Spieler raus, die anderen spielen weiter, bis einer übrig ist.
+      st.out = (st.out || []).concat([p]);
+      addLog(st, { p, a: 'out' });
+      if (activePlayers(st).length <= 1) { endRound(st, p); return null; }
+    }
+    st.turn = nextActive(st, p);
     st.step = 'draw';
     st.meldedThisTurn = false;
     return null;
@@ -1030,15 +1048,18 @@ if (window.FIREBASE_CONFIG.apiKey) {
 
   function endRound(st, w) {
     const doubled = !!st.meldedThisTurn;
+    const out = (st.out || []).slice();
+    if (!out.includes(w)) out.push(w);
     const losers = [];
+    st.roundWinners = (st.roundWinners || []).concat([out[0]]);
     playersOf(st).forEach((p) => {
-      if (p === w) { st.scores[p].push(0); return; }
+      if (out.includes(p)) { st.scores[p].push(0); return; }
       const base = handPenalty(st.hands[p]);
       const pts = base * (doubled ? 2 : 1);
       st.scores[p].push(pts);
       losers.push({ p, points: pts, base, hand: st.hands[p].slice() });
     });
-    st.lastRound = { winner: w, doubled, losers };
+    st.lastRound = { winner: out[0], out, doubled, losers };
     st.phase = st.round >= st.total ? 'gameEnd' : 'roundEnd';
     if (st.phase === 'gameEnd') recordGame(st);
     addLog(st, { p: w, a: 'win' });
@@ -1064,7 +1085,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     runValue, meldValue, penaltyOf, handPenalty, rankAt,
     analyzeSet, analyzeRun, analyzeMeld, addToMeld,
     newGame, lobby, startRound, drawDeck, drawDiscard, layMeld, addCards, takeBack, discard, nextRound,
-    tentValue, tentMelds, totals, other, playersOf, nextPlayer, emptyStats,
+    tentValue, tentMelds, totals, other, playersOf, nextPlayer, nextActive, activePlayers, emptyStats,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = Rules;
   root.Rules = Rules;
@@ -1336,7 +1357,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
       // verdeckte Karten zum Selbstzählen
       const backs = document.createElement('div'); backs.className = 'backs';
       for (let i = 0; i < qc; i++) { const b = backEl(); b.style.transform = 'rotate(' + ((i - (qc - 1) / 2) * 2.5) + 'deg)'; backs.appendChild(b); }
-      chip.append(backs);
+      if (st.phase === 'play' && (st.out || []).includes(q)) {
+        const done = document.createElement('span'); done.className = 'donetag'; done.textContent = '✓ fertig';
+        chip.classList.add('done'); chip.append(done);
+      } else chip.append(backs);
       if (st.openCard && (st.hands[q] || []).includes(st.openCard)) {
         const c = cardEl(st.openCard, { small: true }); c.style.setProperty('--w', '30px'); c.title = 'offen'; chip.append(c);
       }
@@ -1355,6 +1379,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
     // kurz halten: nur wer dran ist und was zu tun ist
     if (!inGame()) {
       main = 'Du schaust zu.' + (st.phase === 'play' ? ' ' + turnName + ' ist dran.' : '');
+    } else if ((st.out || []).includes(p)) {
+      main = 'Du bist fertig! Die anderen spielen weiter. ' + turnName + ' ist dran.';
     } else if (myTurn && st.step === 'draw') {
       main = 'Du bist dran! Nimm eine Karte.';
     } else if (myTurn) {
@@ -1442,6 +1468,12 @@ if (window.FIREBASE_CONFIG.apiKey) {
     setTopHeight();
     updatePresence();
     if (before) animateChanges(before, prev, st);
+    // jemand hat alle Karten abgelegt, die Runde läuft aber weiter
+    if (prev.dealId === st.dealId && (st.out || []).length > (prev.out || []).length) {
+      const q = st.out[st.out.length - 1];
+      toast(q === p ? 'Geschafft – du bist fertig! Die anderen spielen weiter.' : NAMES[q] + ' ist fertig! Die anderen spielen weiter.');
+      if (q === p) confetti(30);
+    }
     lastRendered = st;
 
     // Knöpfe
@@ -1616,8 +1648,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
       if (lastP === null) lastP = e.p;
     }
     let txt = parts.slice(-4).join(' ');
-    if (lastP !== null) txt += ' ' + NAMES[lastP] + ' hat noch ' + cardsWord((state.hands[lastP] || []).length) + '.';
-    const few = others().filter((q) => q !== lastP && (state.hands[q] || []).length <= 3);
+    if (lastP !== null && (state.hands[lastP] || []).length) txt += ' ' + NAMES[lastP] + ' hat noch ' + cardsWord((state.hands[lastP] || []).length) + '.';
+    const few = others().filter((q) => q !== lastP && (state.hands[q] || []).length && (state.hands[q] || []).length <= 3);
     few.forEach((q) => { txt += ' ' + NAMES[q] + ' hat nur noch ' + cardsWord(state.hands[q].length) + '!'; });
     return txt.trim();
   }
@@ -1631,6 +1663,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       case 'add': return who + ' angelegt: ' + cards + '.';
       case 'swap': return who + ' einen Joker getauscht.';
       case 'discard': return who + ' ' + cards + ' abgeworfen.';
+      case 'out': return (e.p === seat ? 'Du bist' : NAMES[e.p] + ' ist') + ' fertig.';
       case 'start': return (e.p === seat ? 'Du fängst' : NAMES[e.p] + ' fängt') + ' an.';
       default: return '';
     }
@@ -1827,7 +1860,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
     } else {
       head = '<div class="big-emoji">🎉</div><h1>' + esc(winName) + ' die Runde gewonnen!</h1>';
     }
-    const losersHtml = lr.losers.map((l, k) =>
+    // bei drei oder vier Spielern: Reihenfolge, wer fertig wurde
+    const outHtml = (lr.out && lr.out.length > 1)
+      ? '<p class="note">Fertig: ' + lr.out.map((q, i) => (i + 1) + '. ' + esc(q === seat ? 'Du' : NAMES[q])).join(' · ') + '</p>' : '';
+    const losersHtml = outHtml + lr.losers.map((l, k) =>
       '<div class="loser"><p>' + (l.p === seat ? 'Du bekommst' : esc(NAMES[l.p]) + ' bekommt') + ' <b>' + l.points + ' Minuspunkte</b>' +
       (lr.doubled ? ' (Handrommé – doppelt: 2 × ' + l.base + ')' : '') + '.</p><div class="cards" data-k="' + k + '"></div></div>').join('');
     const pnl = panel(head + losersHtml +
