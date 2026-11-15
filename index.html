@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = 'c26d6cc812';
+window.ROMME_VERSION = '55720f1470';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -1936,7 +1936,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
   const linkFor = (code, q, k) => location.origin + location.pathname + '?t=' + code + '&p=' + q + (k ? '&k=' + k : '');
   const linkList = (code, keys, devs) => SEATS.map((q) => '<div class="linkbox"><b>' + (q === seat && code === table ? 'Dein Link' : 'Link für ' + esc(NAMES[q])) + '</b>' +
     (devs && devs[q] !== undefined ? ' <span class="devcount">' + (devs[q] ? '📱 ' + devs[q] + (devs[q] === 1 ? ' Gerät' : ' Geräte') + ' verbunden' : 'noch kein Gerät verbunden') + '</span>' : '') +
-    esc(linkFor(code, q, keys[q])) + '</div><button class="btn" data-copy="' + esc(linkFor(code, q, keys[q])) + '">Kopieren</button>').join('');
+    esc(linkFor(code, q, keys[q])) + '</div><button class="btn" data-copy="' + esc(linkFor(code, q, keys[q])) + '">Kopieren</button>' +
+    (code === table && q !== 1 && seat === 1 ? '<button class="btn small" data-renew="' + q + '">Neuen Link für ' + esc(NAMES[q]) + '</button>' : '')).join('');
 
   async function showSetup() {
     panel('<h1>Neuer Spieltisch</h1><p>Dieser Link enthält noch keinen Spieltisch. Soll ein neuer Tisch mit eigenen Links für ' +
@@ -1961,7 +1962,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const pnl = panel('<h2>Einstellungen</h2>' +
       '<button class="btn" id="mAbort">Spiel abbrechen und neu beginnen</button>' +
       '<h2 style="margin-top:18px">Links</h2><div id="mLinks"><div class="spinner"></div></div>' +
-      '<p class="note">Die Links bleiben immer gleich. Jeder Link funktioniert auf beliebig vielen Geräten der Person. Wichtig: den Link komplett öffnen (mit dem Teil „&k=…“ am Ende).</p>' +
+      '<p class="note">Die Links bleiben gleich, solange du keinen neuen erzeugst. Jeder Link funktioniert auf beliebig vielen Geräten der Person. Wichtig: den Link komplett öffnen (mit dem Teil „&k=…“ am Ende).</p>' +
       '<button class="btn primary" id="mClose">Schließen</button>');
     pnl.querySelector('#mClose').onclick = () => { menuOpen = false; render(); };
     pnl.querySelector('#mAbort').onclick = () => {
@@ -1977,6 +1978,11 @@ if (window.FIREBASE_CONFIG.apiKey) {
       try { devs = await sync.devices(); } catch (err) { devs = null; }
       box.innerHTML = linkList(table, keys, devs);
       box.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
+      box.querySelectorAll('[data-renew]').forEach((b) => b.onclick = async () => {
+        const q = +b.dataset.renew;
+        if (!confirm('Neuen Link für ' + NAMES[q] + ' erzeugen? Der bisherige Link von ' + NAMES[q] + ' funktioniert dann nicht mehr. Danach den neuen Link kopieren und ' + NAMES[q] + ' schicken.')) return;
+        try { await sync.newKey(q); toast('Neuer Link für ' + NAMES[q] + ' ist fertig – jetzt auf „Kopieren“ tippen.'); fill(); } catch (err) { toast('Hat nicht geklappt: ' + err.message, true); }
+      });
     };
     fill();
   }
