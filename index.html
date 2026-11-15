@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = 'df894c7c19';
+window.ROMME_VERSION = '5a1221d9eb';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -1123,10 +1123,11 @@ if (window.FIREBASE_CONFIG.apiKey) {
   let savedLink = null, linkClash = false;
   try { savedLink = JSON.parse(localStorage.getItem('romme-link') || 'null'); } catch (e) {}
   const saveLink = () => { try { localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat, k: seatKey })); } catch (e) {} };
-  if (table && SEATS.includes(seat)) {
+  if (qs.has('neu')) { table = null; seat = 0; } // ?neu → neuen Spieltisch anlegen
+  else if (table && SEATS.includes(seat)) {
     if (!savedLink || !savedLink.t || savedLink.t !== table || savedLink.p === seat) saveLink(); // neu, anderer (alter) Tisch oder gleicher Platz // neu oder gleicher Platz (evtl. neuer Schlüssel)
     else { let once = ''; try { once = sessionStorage.getItem('romme-once') || ''; } catch (e) {} linkClash = once !== table + '/' + seat; }
-  } else if (savedLink) { table = savedLink.t; seat = savedLink.p; seatKey = savedLink.k || ''; }
+  } else if (savedLink && savedLink.t) { table = savedLink.t; seat = savedLink.p; seatKey = savedLink.k || ''; }
 
   const me = () => seat;
   const players = () => R.playersOf(state);
@@ -1949,6 +1950,9 @@ if (window.FIREBASE_CONFIG.apiKey) {
       try {
         if (!TEST) { await sync.init(); await sync.createTable(code, keys); }
       } catch (err) { toast('Anlegen hat nicht geklappt: ' + (err.message || err), true); return; }
+      // Dieses Gerät gehört ab jetzt Till am neuen Tisch (auch falls die Seite neu lädt)
+      table = code; seat = 1; seatKey = keys[1]; saveLink();
+      try { history.replaceState(null, '', linkFor(code, 1, keys[1])); } catch (e) {}
       panel('<h1>Tisch angelegt</h1><p>Jede Person bekommt ihren eigenen Link. Jeder Link funktioniert auf beliebig vielen Geräten dieser Person (Handy, Tablet, Computer).</p>' +
         linkList(code, keys) +
         '<p class="note">Alle Links gut aufheben und nur an die jeweilige Person geben.</p>' +
