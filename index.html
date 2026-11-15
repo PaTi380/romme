@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = '55720f1470';
+window.ROMME_VERSION = 'df894c7c19';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -1124,7 +1124,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
   try { savedLink = JSON.parse(localStorage.getItem('romme-link') || 'null'); } catch (e) {}
   const saveLink = () => { try { localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat, k: seatKey })); } catch (e) {} };
   if (table && SEATS.includes(seat)) {
-    if (!savedLink || !savedLink.t || (savedLink.t === table && savedLink.p === seat)) saveLink(); // neu oder gleicher Platz (evtl. neuer Schlüssel)
+    if (!savedLink || !savedLink.t || savedLink.t !== table || savedLink.p === seat) saveLink(); // neu, anderer (alter) Tisch oder gleicher Platz // neu oder gleicher Platz (evtl. neuer Schlüssel)
     else { let once = ''; try { once = sessionStorage.getItem('romme-once') || ''; } catch (e) {} linkClash = once !== table + '/' + seat; }
   } else if (savedLink) { table = savedLink.t; seat = savedLink.p; seatKey = savedLink.k || ''; }
 
@@ -2145,7 +2145,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     }
 
     if (linkClash && (!TEST || qs.get('clash'))) {
-      const was = savedLink.t === table ? NAMES[savedLink.p] : 'einen anderen Spieltisch';
+      const was = NAMES[savedLink.p];
       showMessage('<div class="big-emoji">📱</div><h2>Welcher Platz für dieses Gerät?</h2>' +
         '<p>Dieses Gerät ist für <b>' + esc(was) + '</b> eingerichtet. Du hast aber den Link von <b>' + esc(NAMES[seat]) + '</b> geöffnet.</p>' +
         '<div class="row" style="flex-direction:column;gap:10px">' +
