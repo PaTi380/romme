@@ -27,7 +27,7 @@
       Solange apiKey leer ist, läuft das Spiel im Testmodus
       (zwei Tabs im selben Browser, ohne Internet-Abgleich).
 ================================================================= */
-window.ROMME_VERSION = '57f88c5c24';
+window.ROMME_VERSION = 'c26d6cc812';
 window.ROMME_NAMEN = { 1: 'Till', 2: 'Oma', 3: 'Petra', 4: 'Patrick' };
 
 window.FIREBASE_CONFIG = {
@@ -596,6 +596,7 @@ button { font: inherit; cursor: pointer; }
 .oppchip.done .avatar { opacity: .8; }
 .jside .btn { flex: 1; line-height: 1.25; padding-top: 12px; padding-bottom: 12px; }
 .jside .btn small { font-size: .85em; opacity: .9; font-weight: 600; }
+.devcount { display: block; font-size: .85em; font-weight: 600; opacity: .8; margin: 2px 0 4px; }
 
 </style>
 </head>
@@ -1117,10 +1118,15 @@ if (window.FIREBASE_CONFIG.apiKey) {
   // ---------- Tisch und Platz aus dem Link ----------
   const qs = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
   let table = qs.get('t'), seat = +qs.get('p'), seatKey = qs.get('k') || '';
-  try {
-    if (table && SEATS.includes(seat)) localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat, k: seatKey }));
-    else { const s = JSON.parse(localStorage.getItem('romme-link') || 'null'); if (s) { table = s.t; seat = s.p; seatKey = s.k || ''; } }
-  } catch (e) { /* ohne Speicher geht es auch */ }
+  // Jedes Gerät merkt sich „seinen“ Platz. Ein fremder Link überschreibt das nicht einfach,
+  // sonst würde z. B. Omas Tablet nach dem Öffnen von Patricks Link als Patrick starten.
+  let savedLink = null, linkClash = false;
+  try { savedLink = JSON.parse(localStorage.getItem('romme-link') || 'null'); } catch (e) {}
+  const saveLink = () => { try { localStorage.setItem('romme-link', JSON.stringify({ t: table, p: seat, k: seatKey })); } catch (e) {} };
+  if (table && SEATS.includes(seat)) {
+    if (!savedLink || !savedLink.t || (savedLink.t === table && savedLink.p === seat)) saveLink(); // neu oder gleicher Platz (evtl. neuer Schlüssel)
+    else { let once = ''; try { once = sessionStorage.getItem('romme-once') || ''; } catch (e) {} linkClash = once !== table + '/' + seat; }
+  } else if (savedLink) { table = savedLink.t; seat = savedLink.p; seatKey = savedLink.k || ''; }
 
   const me = () => seat;
   const players = () => R.playersOf(state);
@@ -1176,6 +1182,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
       },
       async resetSeat() {},
       async getKeys() { const k = {}; SEATS.forEach((q) => { k[q] = 'test' + q; }); return k; },
+      async devices() { const r = {}; SEATS.forEach((q) => { r[q] = q === 2 ? 0 : 1; }); return r; },
       async createTable() {},
       async newKey() { return 'test'; },
       presence(p, cb) {
@@ -1208,6 +1215,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
         try { await base.child('plaetze/' + p + '/' + uid).set(seatKey); return true; } catch (e) { return false; }
       },
       async getKeys() { const s = await firebase.database().ref('schluessel/' + table).once('value'); return s.val() || {}; },
+      async devices() {
+        const s = await base.child('plaetze').once('value'); const v = s.val() || {}, r = {};
+        SEATS.forEach((q) => { r[q] = Object.keys(v[q] || {}).length; }); return r;
+      },
       async createTable(code, keys) { await firebase.database().ref('schluessel/' + code).set(keys); },
       // Neuer Link für einen Platz: alter Schlüssel ungültig, alle Geräte dieses Platzes abgemeldet
       async newKey(q) {
@@ -1923,9 +1934,9 @@ if (window.FIREBASE_CONFIG.apiKey) {
   function showMessage(html) { panel(html); }
 
   const linkFor = (code, q, k) => location.origin + location.pathname + '?t=' + code + '&p=' + q + (k ? '&k=' + k : '');
-  const linkList = (code, keys) => SEATS.map((q) => '<div class="linkbox"><b>' + (q === seat && code === table ? 'Dein Link' : 'Link für ' + esc(NAMES[q])) + '</b>' +
-    esc(linkFor(code, q, keys[q])) + '</div><button class="btn" data-copy="' + esc(linkFor(code, q, keys[q])) + '">Kopieren</button>' +
-    (code === table && q !== 1 ? '<button class="btn" data-renew="' + q + '">Neuen Link erzeugen</button>' : '')).join('');
+  const linkList = (code, keys, devs) => SEATS.map((q) => '<div class="linkbox"><b>' + (q === seat && code === table ? 'Dein Link' : 'Link für ' + esc(NAMES[q])) + '</b>' +
+    (devs && devs[q] !== undefined ? ' <span class="devcount">' + (devs[q] ? '📱 ' + devs[q] + (devs[q] === 1 ? ' Gerät' : ' Geräte') + ' verbunden' : 'noch kein Gerät verbunden') + '</span>' : '') +
+    esc(linkFor(code, q, keys[q])) + '</div><button class="btn" data-copy="' + esc(linkFor(code, q, keys[q])) + '">Kopieren</button>').join('');
 
   async function showSetup() {
     panel('<h1>Neuer Spieltisch</h1><p>Dieser Link enthält noch keinen Spieltisch. Soll ein neuer Tisch mit eigenen Links für ' +
@@ -1950,7 +1961,7 @@ if (window.FIREBASE_CONFIG.apiKey) {
     const pnl = panel('<h2>Einstellungen</h2>' +
       '<button class="btn" id="mAbort">Spiel abbrechen und neu beginnen</button>' +
       '<h2 style="margin-top:18px">Links</h2><div id="mLinks"><div class="spinner"></div></div>' +
-      '<p class="note">Jeder Link funktioniert auf allen Geräten der Person. „Neuen Link erzeugen“ nur, wenn ein Link in falsche Hände geraten oder ein Gerät verloren gegangen ist: Dann gilt der alte Link nicht mehr, und alle Geräte dieser Person brauchen den neuen.</p>' +
+      '<p class="note">Die Links bleiben immer gleich. Jeder Link funktioniert auf beliebig vielen Geräten der Person. Wichtig: den Link komplett öffnen (mit dem Teil „&k=…“ am Ende).</p>' +
       '<button class="btn primary" id="mClose">Schließen</button>');
     pnl.querySelector('#mClose').onclick = () => { menuOpen = false; render(); };
     pnl.querySelector('#mAbort').onclick = () => {
@@ -1962,13 +1973,10 @@ if (window.FIREBASE_CONFIG.apiKey) {
       let keys;
       try { keys = await sync.getKeys(); } catch (err) { pnl.querySelector('#mLinks').innerHTML = '<p>Links konnten nicht geladen werden.</p>'; return; }
       const box = pnl.querySelector('#mLinks'); if (!box) return;
-      box.innerHTML = linkList(table, keys);
+      let devs = null;
+      try { devs = await sync.devices(); } catch (err) { devs = null; }
+      box.innerHTML = linkList(table, keys, devs);
       box.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy, b));
-      box.querySelectorAll('[data-renew]').forEach((b) => b.onclick = async () => {
-        const q = +b.dataset.renew;
-        if (!confirm('Neuen Link für ' + NAMES[q] + ' erzeugen? Der bisherige Link funktioniert dann nicht mehr, auf allen Geräten von ' + NAMES[q] + ' muss der neue Link geöffnet werden.')) return;
-        try { await sync.newKey(q); toast('Neuer Link für ' + NAMES[q] + ' erzeugt.'); fill(); } catch (err) { toast('Hat nicht geklappt: ' + err.message, true); }
-      });
     };
     fill();
   }
@@ -2130,6 +2138,20 @@ if (window.FIREBASE_CONFIG.apiKey) {
       if (TEST && !table) { table = 'test'; seat = seat || 1; } else { showSetup(); return; }
     }
 
+    if (linkClash && (!TEST || qs.get('clash'))) {
+      const was = savedLink.t === table ? NAMES[savedLink.p] : 'einen anderen Spieltisch';
+      showMessage('<div class="big-emoji">📱</div><h2>Welcher Platz für dieses Gerät?</h2>' +
+        '<p>Dieses Gerät ist für <b>' + esc(was) + '</b> eingerichtet. Du hast aber den Link von <b>' + esc(NAMES[seat]) + '</b> geöffnet.</p>' +
+        '<div class="row" style="flex-direction:column;gap:10px">' +
+        '<button class="btn primary" id="lcKeep">Weiter als ' + esc(was) + '</button>' +
+        '<button class="btn" id="lcOnce">Nur jetzt als ' + esc(NAMES[seat]) + ' spielen</button>' +
+        '<button class="btn" id="lcSwitch">Gerät ab jetzt für ' + esc(NAMES[seat]) + '</button></div>');
+      await new Promise((res) => {
+        $('#lcKeep').onclick = () => { location.replace(location.pathname); };
+        $('#lcOnce').onclick = () => { try { sessionStorage.setItem('romme-once', table + '/' + seat); } catch (e) {} res(); };
+        $('#lcSwitch').onclick = () => { saveLink(); res(); };
+      });
+    }
     showMessage('<h2>Einen Moment …</h2><div class="spinner"></div><p>Verbinde mit dem Spieltisch.</p>');
     try {
       await sync.init();
@@ -2144,8 +2166,8 @@ if (window.FIREBASE_CONFIG.apiKey) {
   async function claimLoop() {
     const ok = await sync.claim(seat);
     if (!ok) {
-      showMessage('<div class="big-emoji">🔒</div><h2>Dieser Link funktioniert nicht</h2>' +
-        '<p>Vielleicht ist es ein alter Link. Bitte bei ' + esc(NAMES[1]) + ' nach dem aktuellen Link fragen und diesen öffnen.</p><div class="spinner"></div>');
+      showMessage('<div class="big-emoji">🔒</div><h2>Dieser Link für ' + esc(NAMES[seat] || '?') + ' funktioniert nicht</h2>' +
+        '<p>Der Link ist unvollständig oder veraltet. ' + esc(NAMES[1]) + ' findet den richtigen Link in Rommé unter ⚙ → Links → „Kopieren“. Bitte diesen Link komplett öffnen.</p><div class="spinner"></div>');
       setTimeout(claimLoop, 8000);
       return;
     }
